@@ -28,7 +28,7 @@ function error(msg) {
 //    $("#content").css("opacity", "1").show();
 //    $("#mathjax-info").fadeOut('fast');
 //  }
-//  MathJax.Hub.Queue(function() {show_content()}); 
+//  show_content(); 
 //  $("#mathjax-info").click(function() {show_content()});
 //
 //  window.setTimeout(function() {
@@ -215,8 +215,8 @@ function knowl_click_handler($el) {
     if(knowl_id == "dynamic_show") {
       log("dynamic_show: " + kwargs);
       $output.html('<div class="knowl"><div><div class="knowl-content">' + kwargs + '</div></div></div>');
-      MathJax.Hub.Queue(['Typeset', MathJax.Hub, $output.get(0)]);
-      MathJax.Hub.Queue([ function() { $output.slideDown(50); }]);
+      renderMathInElement($output.get(0), katexOpts);
+      $output.slideDown(50);
     } else if((!kwargs || kwargs.length == 0) && (knowl_id in knowl_cache)) {
       // cached? (no kwargs or empty string AND kid in cache)
       log("cache hit: " + knowl_id);
