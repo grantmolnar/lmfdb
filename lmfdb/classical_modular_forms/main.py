@@ -926,12 +926,12 @@ def self_twist_type_formatter(x, col):
         if x == 0:
             return 'neither'
         if x == 1:
-            return 'CM'
+            return 'CM only'
         if x == 2:
-            return 'RM'
+            return 'RM only'
         if x == 3:
             return 'both'
-        return x # c = 'neither', 'CM', 'RM' or 'both'
+        return x # c = 'neither', 'CM only', 'RM only' or 'both'
 
 def self_twist_type_query_formatter(x, col):
     if col == 'weight':
@@ -939,9 +939,9 @@ def self_twist_type_query_formatter(x, col):
     else:
         if x in [0, 'neither']:
             return 'has_self_twist=no'
-        elif x in [1, 'CM']:
+        elif x in [1, 'CM only']:
             return 'has_self_twist=cm'
-        elif x in [2, 'RM']:
+        elif x in [2, 'RM only']:
             return 'has_self_twist=rm'
         elif x in [3, 'both']:
             return 'has_self_twist=cm_and_rm'
@@ -995,7 +995,8 @@ class CMF_stats(StatsDisplay):
          'row_title':'projective image',
          'sort_key': projective_image_sort_key,
          'knowl':'mf.elliptic.projective_image',
-         'formatter': (lambda t: r'\(%s_{%s}\)' % (t[0], t[1:]))},
+         'formatter': (lambda t: r'\(%s_{%s}\)' % (t[0], t[1:])),
+         'query_formatter':(lambda t,x: r'projective_image=%s%s' % (t[0], t[1:]))},
         {'cols':'num_forms',
          'table':db.mf_newspaces,
          'top_title': ['number of newforms', r'in \(S_k(N, \chi)\)'],

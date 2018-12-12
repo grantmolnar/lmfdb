@@ -283,17 +283,34 @@ class StatsDisplay(UniqueRepresentation):
                 dists.append(data)
         return dists
 
-    def setup(self):
+    def setup(self, delete=False):
         """
         This function should be called manually at the Sage prompt to add
         the appropriate data to the stats table.
+
+        Warning: if delete is True and an entry in the stat_list includes the 'table' attribute,
+        stats and counts from that table will also be deleted.
         """
+        if delete:
+            self.table.stats._clear_stats_counts(extra=False)
+            for attr in self.stat_list:
+                if 'table' in attr:
+                    attr['table'].stats._clear_stats_counts(extra=False)
         for attr in self.stat_list:
             cols = attr["cols"]
             buckets = attr.get("buckets")
+            # Deal with the length 1 shortcuts
+            if isinstance(cols, basestring):
+                cols = [cols]
+            if isinstance(buckets, list) and len(cols) == 1:
+                buckets = {cols[0]: buckets}
             constraint = attr.get("constraint")
-            include_upper = attr.get("include_upper",True)
+            include_upper = attr.get("include_upper", True)
+            table = attr.get("table", self.table)
+            split_list = attr.get("split_list", False)
             if buckets:
-                self.table.stats.add_bucketed_counts(cols, buckets, constraint, include_upper)
+                if split_list:
+                    raise ValueError("split_list not supported with buckets")
+                table.stats.add_bucketed_counts(cols, buckets, constraint, include_upper)
             else:
-                self.table.stats.add_stats(cols, constraint)
+                table.stats.add_stats(cols, constraint, split_list=split_list)
