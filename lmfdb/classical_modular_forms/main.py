@@ -31,16 +31,24 @@ def credit():
     return "Alex J Best, Jonathan Bober, Andrew Booker, Edgar Costa, John Cremona, David Roe, Andrew Sutherland, John Voight"
 
 @cached_function
-def Nk2_bound():
-    return db.mf_newforms.max('Nk2')
+def Nk2_bound(nontriv=None):
+    if nontriv:
+        return db.mf_newforms.max('Nk2',{'char_order':{'$ne':1}})
+    else:
+        return db.mf_newforms.max('Nk2')
 @cached_function
-def weight_bound():
-    return db.mf_newforms.max('weight')
+def weight_bound(nontriv=None):
+    if nontriv:
+        return db.mf_newforms.max('weight',{'char_order':{'$ne':1}})
+    else:
+        return db.mf_newforms.max('weight')
 
 @cached_function
-def level_bound():
-    return db.mf_newforms.max('level')
-
+def level_bound(nontriv=None):
+    if nontriv:
+        return db.mf_newforms.max('level',{'char_order':{'$ne':1}})
+    else:
+        return db.mf_newforms.max('level')
 
 def ALdims_knowl(al_dims, level, weight):
     dim_dict = {}
@@ -152,6 +160,10 @@ def set_info_funcs(info):
 
     info['download_spaces'] = lambda results: any(space['dim'] > 1 for space in results)
 
+
+favorite_newform_labels = ('1.12.a.a', '11.2.a.a', '23.2.a.a', '39.1.d.a', '49.2.e.b', '95.6.a.a', '124.1.i.a', '148.1.f.a', '163.3.b.a', '633.1.m.b', '983.2.c.a')
+favorite_space_labels = ('20.5', '60.2', '55.3.d', '147.5.n', '148.4.q', '164.4.o', '244.4.w', '292.3.u', '847.2.f', '309.3.n', '356.3.n', '580.2.be')
+
 @cmf.route("/")
 def index():
     if len(request.args) > 0:
@@ -174,10 +186,8 @@ def index():
             return newform_search(info)
         assert False
     info = {"stats": CMF_stats()}
-    newform_labels = ('1.12.a.a', '11.2.a.a', '23.2.a.a', '39.1.d.a', '49.2.e.b', '95.6.a.a', '124.1.i.a', '148.1.f.a', '163.3.b.a', '633.1.m.b', '983.2.c.a')
-    info["newform_list"] = [ {'label':label,'url':url_for_label(label)} for label in newform_labels ]
-    space_labels = ('20.5', '60.2', '55.3.d', '147.5.n', '148.4.q', '164.4.o', '244.4.w', '292.3.u', '847.2.f', '309.3.n', '356.3.n', '580.2.be')
-    info["space_list"] = [ {'label':label,'url':url_for_label(label)} for label in space_labels ]
+    info["newform_list"] = [ {'label':label,'url':url_for_label(label)} for label in favorite_newform_labels ]
+    info["space_list"] = [ {'label':label,'url':url_for_label(label)} for label in favorite_space_labels ]
     info["weight_list"] = ('1', '2', '3', '4', '5', '6-10', '11-20', '21-40', '41-%d' % weight_bound() )
     info["level_list"] = ('1', '2-100', '101-500', '501-1000', '1001-2000', '2001-%d' % level_bound() )
     return render_template("cmf_browse.html",
@@ -339,7 +349,8 @@ def by_url_newform_conreylabel(level, weight, conrey_label, hecke_orbit):
 def by_url_newform_conreylabel_with_embedding(level, weight, char_orbit_label, hecke_orbit, conrey_label, embedding):
     assert conrey_label > 0
     assert embedding > 0
-    return by_url_newform_label(level, weight, char_orbit_label, hecke_orbit)
+    label = str(level)+"."+str(weight)+"."+char_orbit_label+"."+hecke_orbit
+    return redirect(url_for_label(label), code=301)
 
 
 
@@ -386,7 +397,7 @@ def jump_box(info):
 class CMF_download(Downloader):
     table = db.mf_newforms
     title = 'Classical modular forms'
-    data_format = ['N=level', 'k=weight', 'dim', 'N*k^2', 'defining polynomial', 'number field label', 'CM discriminant', 'first few traces']
+    data_format = ['N=level', 'k=weight', 'dim', 'N*k^2', 'defining polynomial', 'number field label', 'CM discriminants', 'RM discriminants', 'first few traces']
     columns = ['level', 'weight', 'dim', 'analytic_conductor', 'field_poly', 'nf_label', 'cm_discs', 'rm_discs', 'trace_display']
 
     def _get_hecke_nf(self, label):
@@ -648,7 +659,15 @@ def parse_character(inp, query, qfield, level_field='level', conrey_field='char_
             raise ValueError("You must use the orbit label when searching by primitive character")
         query[conrey_field] = {'$contains': int(orbit)}
 
-newform_only_fields = ['dim', 'nf_label', 'is_self_twist', 'cm_discs', 'rm_discs', 'is_twist_minimal', 'has_inner_twist', 'analytic_rank']
+newform_only_fields = {
+    'dim': 'Dimension',
+    'nf_label': 'Coefficient field',
+    'is_self_twist': 'Has self twist',
+    'cm_discs': 'CM discriminant',
+    'rm_discs': 'RM discriminant',
+    'has_inner_twist': 'Has inner twist',
+    'analytic_rank': 'Analytic rank',
+}
 def common_parse(info, query):
     parse_ints(info, query, 'weight', name="Weight")
     if 'weight_parity' in info:
@@ -673,18 +692,19 @@ def common_parse(info, query):
 
 def parse_self_twist(info, query):
     # self_twist_values = [('', 'unrestricted'), ('yes', 'has self-twist'), ('cm', 'has CM'), ('rm', 'has RM'), ('cm_and_rm', 'has CM and RM'), ('no', 'no self-twists') ]
-    translate = {'cm': '1', 'rm': '2', 'cm_and_rm':'3'}
+    translate = {'cm': {'is_cm': True}, 'rm': '2', 'cm_and_rm':'3'}
     inp = info.get('has_self_twist')
     if inp:
         if inp in ['no', 'yes']:
             info['is_self_twist'] = inp
             parse_bool(info, query, 'is_self_twist', name='Has self-twist')
         else:
-            try:
-                info['self_twist_type'] = translate[inp]
-                parse_ints(info, query, 'self_twist_type',name='Has self-twist')
-            except KeyError:
-                raise ValueError('%s not in %s' % (inp, translate.keys()))
+            if 'cm' in  inp:
+                info['is_cm'] = 'yes'
+            if 'rm' in inp:
+                info['is_rm'] = 'yes'
+            parse_bool(info, query, 'is_cm',name='Has self-twist')
+            parse_bool(info, query, 'is_rm',name='Has self-twist')
 
 def parse_discriminant(d, sign = 0):
     d = int(d)
@@ -779,17 +799,24 @@ def set_rows_cols(info, query):
     if len(info['weight_list']) * len(info['level_list']) > 10000:
         raise ValueError("Table too large: must have at most 10000 entries")
 
+def has_data_nontriv(N, k):
+    return N*k*k <= Nk2_bound(nontriv=True)
 def has_data(N, k):
     return N*k*k <= Nk2_bound()
 
 def dimension_space_postprocess(res, info, query):
     set_rows_cols(info, query)
-    dim_dict = {(N,k):DimGrid() for N in info['level_list'] for k in info['weight_list'] if has_data(N,k)}
+    if query.get('char_order') == 1 or query.get('char_conductor') == 1:
+        hasdata = has_data
+    else:
+        hasdata = has_data_nontriv
+    dim_dict = {(N,k):DimGrid() for N in info['level_list'] for k in info['weight_list'] if hasdata(N,k)}
     for space in res:
         dims = DimGrid.from_db(space)
         N = space['level']
         k = space['weight']
-        dim_dict[N,k] += dims
+        if hasdata(N, k):
+            dim_dict[N,k] += dims
     if query.get('char_order') == 1:
         def url_generator(N, k):
             return url_for(".by_url_space_label", level=N, weight=k, char_orbit_label="a")
@@ -809,7 +836,7 @@ def dimension_space_postprocess(res, info, query):
     info['one_type'] = False
     info['switch_text'] = switch_text
     info['url_generator'] = url_generator
-    info['has_data'] = has_data
+    info['has_data'] = hasdata
     return dim_dict
 
 def dimension_form_postprocess(res, info, query):
@@ -882,6 +909,11 @@ def dimension_space_search(info, query):
              learnmore=learnmore_list,
              credit=credit)
 def space_search(info, query):
+    for key, display in newform_only_fields.items():
+        if key in info:
+            msg = "%s not valid when searching for spaces" % display
+            flash_error(msg)
+            raise ValueError(msg)
     common_parse(info, query)
     parse_ints(info, query, 'dim', name='Dimension')
     parse_ints(info, query, 'num_forms', name='Number of newforms')
