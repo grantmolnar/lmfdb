@@ -186,57 +186,6 @@ def belyi_passport_from_belyi_galmap_label(label):
     return '-'.join(label.split("-")[:-1])
 
 
-#either a passport label or a galmap label
-@cached_function
-def break_label(label):
-    """
-    >>> break_label("4T5-[4,4,3]-4-4-31-g1-a")
-    "4T5", [4,4,3], [[4],[4],[3,1]], 1, "a"
-    >>> break_label("4T5-[4,4,3]-4-4-31-g1")
-    "4T5", [4,4,3], [[4],[4],[3,1]], 1, None
-    >>> break_label("12T5-[4,4,3]-10,4-11,1-31-g1")
-    "12T5", [4,4,3], [[10,4],[11,1],[3,1]], 1, None
-    """
-    splitlabel = label.split("-")
-    if len(splitlabel) == 6:
-        group, abc, l0, l1, l2, genus = splitlabel
-        gal = None
-    elif len(splitlabel) == 7:
-        group, abc, l0, l1, l2, genus, gal = splitlabel
-    else:
-        raise ValueError("the label must have 5 or 6 dashes")
-
-    abc = map(int, abc[1:-1].split(","))
-    lambdas = [l0, l1, l2]
-    for i, elt in lambdas:
-        if "," in elt:
-            elt = map(int, elt.split(","))
-        else:
-            elt = map(int, list(elt))
-    genus = int(genus[1:])
-    return group, abc, lambdas, genus, gal
-
-
-def belyi_group_from_label(label):
-    return break_label(label)[0]
-
-def belyi_degree_from_label(label):
-    return int(break_label(label)[0].split("T")[0])
-
-def belyi_abc_from_label(label):
-    return break_label(label)[1]
-
-def belyi_lambdas_from_label(label):
-    return break_label(label)[2]
-
-def belyi_genus_from_label(label):
-    return break_label(label)[3]
-
-def belyi_orbit_from_label(label):
-    return break_label(label)[-1]
-
-
-
 ################################################################################
 # Searching
 ################################################################################
@@ -301,7 +250,7 @@ def download_search(info):
             ]
     c = download_comment_prefix[lang]
     s =  '\n'
-    s += c + ' Belye maps downloaded from the LMFDB, downloaded on %s.\n'% mydate
+    s += c + ' Belyi maps downloaded from the LMFDB, downloaded on %s.\n'% mydate
     s += c + ' Query "%s" returned %d maps.\n\n' %(str(info.get('query')), len(res_list))
     s += c + ' Below is a list called data. Each entry has the form:\n'
     s += c + '   [label, permutation_triples]\n'
@@ -370,9 +319,6 @@ def belyi_search(info, query):
 ################################################################################
 # Statistics
 ################################################################################
-
-def boolean_format(value):
-    return 'True' if value else 'False'
 
 stats_attribute_list = [
     {'name':'deg','top_title':'Degree','row_title':'deg','knowl':'belyi.degree','avg':True},
