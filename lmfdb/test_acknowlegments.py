@@ -4,10 +4,6 @@ import urllib2, ssl, errno
 
 class HomePageTest(LmfdbTest):
 
-    def check(self,homepage,path,text):
-        assert path in homepage
-        assert text in self.tc.get(path).data
-
     def check_external(self, homepage, path, text):
         headers = {'User-Agent': 'Mozilla/5.0'}
         context = ssl._create_unverified_context()
