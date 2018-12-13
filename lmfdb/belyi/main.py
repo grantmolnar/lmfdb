@@ -5,7 +5,6 @@ from ast import literal_eval
 import re
 import time
 from flask import render_template, url_for, request, redirect, send_file, abort
-from sage.misc.cachefunc import cached_function
 from sage.misc.cachefunc import cached_method
 
 from lmfdb.db_backend import db

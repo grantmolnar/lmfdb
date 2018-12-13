@@ -15,15 +15,15 @@ class BelyiTest(LmfdbTest):
     ######## all tests should pass
 
     def test_main(self):
-        check_args('/Belyi/', ['Belyi maps', 'proportion'])
+        self.check_args('/Belyi/', ['Belyi maps', 'proportion'])
 
     def test_stats(self):
-        check_args('/Belyi/stats', ['number of maps', 'proportion'])
+        self.check_args('/Belyi/stats', ['number of maps', 'proportion'])
 
     def test_learn_more_about(self):
-        check_args('/Belyi/Completeness', 'Completeness of Belyi map data')
-        check_args('/Belyi/Source', 'Source of Belyi map data')
-        check_args('/Belyi/Labels', 'Labels for Belyi maps')
+        self.check_args('/Belyi/Completeness', 'Completeness of Belyi map data')
+        self.check_args('/Belyi/Source', 'Source of Belyi map data')
+        self.check_args('/Belyi/Labels', 'Labels for Belyi maps')
 
 
     def test_random(self):
