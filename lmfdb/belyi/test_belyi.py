@@ -15,7 +15,7 @@ class BelyiTest(LmfdbTest):
     ######## all tests should pass
 
     def test_main(self):
-        self.check_args('/Belyi/', ['Belyi maps', 'proportion'])
+        self.check_args('/Belyi/', ['Belyi maps', 'database currently contains'])
 
     def test_stats(self):
         self.check_args('/Belyi/stats', ['number of maps', 'proportion'])
@@ -86,7 +86,7 @@ class BelyiTest(LmfdbTest):
         self.check_args('/Belyi/7T6/%5B4%2C4%2C6%5D', ['Belyi maps with group 7T6 and orders [4,4,6]', '7T6-[4,4,6]-421-421-322-g0-a'])
 
     def test_label_jump(self):
-        self.check_args('/Belyi/?jump=maria', 'Error: maria is not a valid Belyi map or passport label')
+        self.check_args('/Belyi/?jump=maria', ['Error:', 'maria', 'is not a valid Belyi map or passport label'])
         self.check_args('/Belyi/?jump=7T6-[7,4,4]-7-421-421-g1-b', 'Belyi map 7T6-[7,4,4]-7-421-421-g1-b')
         self.check_args('/Belyi/?jump=7T6-[7,4,4]-7-421-421-g1', 'Passport 7T6-[7,4,4]-7-421-421-g1')
 
