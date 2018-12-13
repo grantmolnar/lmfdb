@@ -78,7 +78,8 @@ class BelyiTest(LmfdbTest):
         self.check_args('/Belyi/?count=20', '5T1-[5,5,5]-5-5-5-g2-c')
 
     def test_bread_and_then_search(self):
-        self.check_args('/Belyi/7T6?group=7T3', '7T3-[3,3,3]-331-331-331-g0-a')
+        self.check_args('/Belyi/7T6?group=7T3', ['Belyi map search results','7T3-[3,3,3]-331-331-331-g0-a'])
+        self.check_args('/Belyi/7T6?group=7T6', ['Belyi maps with group 7T6 search results','7T6-[4,4,3]-421-421-331-g0-a'])
         self.check_args('/Belyi/7T6/%5B4%2C4%2C3%5D?group=7T3', '7T3-[3,3,3]-331-331-331-g0-a')
 
     def test_bread(self):

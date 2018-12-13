@@ -181,8 +181,6 @@ def url_for_belyi_passport_label(label):
     slabel = label.split("-")
     return url_for(".by_url_belyi_passport_label", group=slabel[0], abc=slabel[1], sigma0=slabel[2], sigma1=slabel[3], sigmaoo=slabel[4], g=slabel[5])
 
-def belyi_passport_from_belyi_galmap_label(label):
-    return '-'.join(label.split("-")[:-1])
 
 
 ################################################################################
