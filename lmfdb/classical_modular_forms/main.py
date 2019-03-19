@@ -14,7 +14,7 @@ from lmfdb.utils import (
     parse_noop, parse_equality_constraints, integer_options, parse_subset,
     search_wrap,
     flash_error, to_dict, comma, display_knowl, bigint_knowl,
-    StatsDisplay, proportioners, totaler)
+    StatsDisplay, proportioners, totaler, encode_plot)
 from lmfdb.utils.search_parsing import search_parser
 from lmfdb.classical_modular_forms import cmf
 from lmfdb.classical_modular_forms.web_newform import (
@@ -25,6 +25,7 @@ from lmfdb.classical_modular_forms.web_space import (
     get_bread, get_search_bread, get_dim_bread, newform_search_link,
     ALdim_table, OLDLABEL_RE as OLD_SPACE_LABEL_RE)
 from lmfdb.classical_modular_forms.download import CMF_download
+from sage.all import complex_plot, exp, CC, Infinity, PowerSeriesRing
 
 
 @cached_function
@@ -346,6 +347,30 @@ def render_newform_webpage(label):
                            friends=newform.friends,
                            KNOWL_ID="mf.%s" % label)
 
+def render_newform_plot(label, plot_points=100):
+    traces = db.mf_newforms.lucky({'label': label}, 'traces')
+    if traces is None:
+        return abort(404, "No form with label {}s".format(label))
+    f = PowerSeriesRing(CC)([0] + traces[:100])
+    I = CC(0,1)
+    D_to_H = lambda x: (1 - I*x)/(x - I)
+    H_to_q = lambda x: exp(2*CC.pi()*I*x)
+    D_to_q = lambda x: H_to_q(D_to_H(CC(x)))
+    normalize = lambda x: H_to_q(x.abs() + 3/5)
+    plot = complex_plot(
+        lambda x: +Infinity if abs(x) >= 0.99 else 16*normalize(f(D_to_q(x))),
+        (-1, 1),
+        (-1, 1),
+        plot_points=plot_points,
+        aspect_ratio=1,
+        axes=False)
+    png = encode_plot(plot,
+                      pad_inches=0,
+                      bbox_inches='tight',
+                      remove_axes=True)
+    return r'<img src="{}">'.format(png)
+
+
 def render_embedded_newform_webpage(newform_label, embedding_label):
     try:
         label = newform_label + "." + embedding_label
@@ -445,6 +470,11 @@ def by_url_space_conreylabel(level, weight, conrey_index):
 def by_url_newform_label(level, weight, char_orbit_label, hecke_orbit):
     label = ".".join(map(str, [level, weight, char_orbit_label, hecke_orbit]))
     return render_newform_webpage(label)
+
+@cmf.route("/Plot/<int:level>/<int:weight>/<char_orbit_label>/<hecke_orbit>/")
+def plot_by_url_newform_label(level, weight, char_orbit_label, hecke_orbit):
+    label = ".".join(map(str, [level, weight, char_orbit_label, hecke_orbit]))
+    return render_newform_plot(label)
 
 # Backward compatibility from before 2018
 @cmf.route("/<int:level>/<int:weight>/<int:conrey_index>/<hecke_orbit>/")
