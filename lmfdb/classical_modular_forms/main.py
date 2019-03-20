@@ -351,7 +351,7 @@ def render_newform_plot(label, plot_points=300):
     traces = db.mf_newforms.lucky({'label': label}, ['traces[0:100]'])
     if traces is None:
         return abort(404, "No form with label {}s".format(label))
-    traces = traces['traces']
+    traces = traces['traces[0:100]']
     f = PowerSeriesRing(CC)([0] + traces)
     I = CC(0, 1)
     D_to_H = lambda x: (1 - I*x)/(x - I)
