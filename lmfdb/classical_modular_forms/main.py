@@ -364,11 +364,11 @@ def render_newform_plot(label, plot_points=500):
         (-1, 1),
         plot_points=plot_points,
         aspect_ratio=1,
-        axes=False)
+        axes=False, dpi=300)
     png = encode_plot(plot,
                       pad_inches=0,
                       bbox_inches='tight',
-                      remove_axes=True, dpi=300)
+                      remove_axes=True)
     return r'<img src="{}">'.format(png)
 
 
