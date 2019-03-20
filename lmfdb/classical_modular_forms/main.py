@@ -364,7 +364,7 @@ def render_newform_plot(label, plot_points=500):
         (-1, 1),
         plot_points=plot_points,
         aspect_ratio=1,
-        axes=False, fisize=[10,10])
+        axes=False)
     png = encode_plot(plot,
                       pad_inches=0,
                       bbox_inches='tight',
