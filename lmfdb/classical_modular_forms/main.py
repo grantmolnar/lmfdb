@@ -25,7 +25,7 @@ from lmfdb.classical_modular_forms.web_space import (
     get_bread, get_search_bread, get_dim_bread, newform_search_link,
     ALdim_table, OLDLABEL_RE as OLD_SPACE_LABEL_RE)
 from lmfdb.classical_modular_forms.download import CMF_download
-from sage.all import complex_plot, exp, CC, Infinity, PolynomialRing
+from sage.all import complex_plot, exp, CDF, Infinity, PolynomialRing
 
 
 @cached_function
@@ -352,11 +352,11 @@ def render_newform_plot(label, plot_points=400):
     if traces is None:
         return abort(404, "No form with label {}s".format(label))
     traces = traces['traces[0:50]']
-    f = PolynomialRing(CC, 'q')([0] + traces)
-    I = CC(0, 1)
+    f = PolynomialRing(CDF, 'q')([0] + traces)
+    I = CDF(0, 1)
     D_to_H = lambda x: (1 - I*x)/(x - I)
-    H_to_q = lambda x: exp(2*CC.pi()*I*x)
-    D_to_q = lambda x: H_to_q(D_to_H(CC(x)))
+    H_to_q = lambda x: exp(2*CDF.pi()*I*x)
+    D_to_q = lambda x: H_to_q(D_to_H(x))
     normalize = lambda x: H_to_q(x.abs() + 0.6)
     plot = complex_plot(
         lambda x: +Infinity if abs(x) >= 0.99 else 16*normalize(f(D_to_q(x))),
