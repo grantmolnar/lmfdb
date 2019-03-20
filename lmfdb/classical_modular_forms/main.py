@@ -352,7 +352,7 @@ def render_newform_plot(label, plot_points=400):
     if traces is None:
         return abort(404, "No form with label {}s".format(label))
     traces = traces['traces[0:50]']
-    f = PolynomialRing(CC)([0] + traces)
+    f = PolynomialRing(CC, 'q')([0] + traces)
     I = CC(0, 1)
     D_to_H = lambda x: (1 - I*x)/(x - I)
     H_to_q = lambda x: exp(2*CC.pi()*I*x)
