@@ -352,11 +352,11 @@ def render_newform_plot(label, plot_points=100):
     if traces is None:
         return abort(404, "No form with label {}s".format(label))
     f = PowerSeriesRing(CC)([0] + traces[:100])
-    I = CC(0,1)
+    I = CC(0, 1)
     D_to_H = lambda x: (1 - I*x)/(x - I)
     H_to_q = lambda x: exp(2*CC.pi()*I*x)
     D_to_q = lambda x: H_to_q(D_to_H(CC(x)))
-    normalize = lambda x: H_to_q(x.abs() + 3/5)
+    normalize = lambda x: H_to_q(x.abs() + 0.6)
     plot = complex_plot(
         lambda x: +Infinity if abs(x) >= 0.99 else 16*normalize(f(D_to_q(x))),
         (-1, 1),
@@ -368,7 +368,7 @@ def render_newform_plot(label, plot_points=100):
                       pad_inches=0,
                       bbox_inches='tight',
                       remove_axes=True)
-    return r'<img src="{}">'.format(png)
+    return '<img src="{}">'.format(png)
 
 
 def render_embedded_newform_webpage(newform_label, embedding_label):
