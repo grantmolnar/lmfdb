@@ -189,10 +189,12 @@ class WebNewform(object):
         else:
             self.properties = [('Label', '%s.%s' % (self.label, self.embedding_label))]
         if self.plot is not None:
-            self.properties += [(
-                '/ModularForm/GL2/Q/holomorphic/Plot/' + '/'.join(self.label),
-                '<img src="{0}" width="200" height="200"/></a>'.format(self.plot)
-                )]
+            plot_url = '/ModularForm/GL2/Q/holomorphic/Plot/' +\
+                    self.label.replace('.', '/')
+            img = '<img src="{0}" width="200" height="200"/></a>'.format(self.plot)
+            self.properties += [(None,
+                                '<a href="{0}">{1}</a>'.format(plot_url, img)
+                                )]
 
         self.properties += [('Level', str(self.level)),
                             ('Weight', str(self.weight))]
