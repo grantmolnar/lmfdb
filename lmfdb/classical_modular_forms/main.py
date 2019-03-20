@@ -359,7 +359,7 @@ def render_newform_plot(label, plot_points=400):
     D_to_q = lambda x: H_to_q(D_to_H(x))
     normalize = lambda x: H_to_q(x.abs() + 0.6)
     plot = complex_plot(
-        lambda x: +Infinity if abs(x) >= 0.99 else 16*normalize(f(D_to_q(x))),
+        lambda x: +Infinity if abs(x) >= (1. - 1e-15) else 16*normalize(f(D_to_q(x))),
         (-1, 1),
         (-1, 1),
         plot_points=plot_points,
