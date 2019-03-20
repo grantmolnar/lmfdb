@@ -181,7 +181,7 @@ class WebNewform(object):
         self.has_complex_qexp = False # stub, overwritten by setup_cc_data.
 
 
-        self.plot =  db.mf_newform_portraits.lookup(self.label, projection = "portrait")
+        self.plot =  db.mf_newform_portraits.lookup(self.label, projection="portrait")
 
         # properties box
         if embedding_label is None:
@@ -189,7 +189,10 @@ class WebNewform(object):
         else:
             self.properties = [('Label', '%s.%s' % (self.label, self.embedding_label))]
         if self.plot is not None:
-            self.properties += [(None, '<img src="{0}" width="200" height="200"/>'.format(self.plot))]
+            self.properties += [(
+                '/ModularForm/GL2/Q/holomorphic/Plot/' + '/'.join(self.label),
+                '<img src="{0}" width="200" height="200"/></a>'.format(self.plot)
+                )]
 
         self.properties += [('Level', str(self.level)),
                             ('Weight', str(self.weight))]
