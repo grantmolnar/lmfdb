@@ -25,7 +25,7 @@ from lmfdb.classical_modular_forms.web_space import (
     get_bread, get_search_bread, get_dim_bread, newform_search_link,
     ALdim_table, OLDLABEL_RE as OLD_SPACE_LABEL_RE)
 from lmfdb.classical_modular_forms.download import CMF_download
-from sage.all import complex_plot, exp, CC, Infinity, PowerSeriesRing
+from sage.all import complex_plot, exp, CC, Infinity, PolynomialRing
 
 
 @cached_function
@@ -352,7 +352,7 @@ def render_newform_plot(label, plot_points=400):
     if traces is None:
         return abort(404, "No form with label {}s".format(label))
     traces = traces['traces[0:50]']
-    f = PowerSeriesRing(CC)([0] + traces)
+    f = PolynomialRing(CC)([0] + traces)
     I = CC(0, 1)
     D_to_H = lambda x: (1 - I*x)/(x - I)
     H_to_q = lambda x: exp(2*CC.pi()*I*x)
