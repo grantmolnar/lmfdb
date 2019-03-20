@@ -347,7 +347,7 @@ def render_newform_webpage(label):
                            friends=newform.friends,
                            KNOWL_ID="mf.%s" % label)
 
-def render_newform_plot(label, plot_points=200):
+def render_newform_plot(label, plot_points=300):
     traces = db.mf_newforms.lucky({'label': label}, ['traces[0:50]'])
     if traces is None:
         return abort(404, "No form with label {}s".format(label))
