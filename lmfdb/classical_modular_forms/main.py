@@ -347,11 +347,11 @@ def render_newform_webpage(label):
                            friends=newform.friends,
                            KNOWL_ID="mf.%s" % label)
 
-def render_newform_plot(label, plot_points=100):
+def render_newform_plot(label, plot_points=1000):
     traces = db.mf_newforms.lucky({'label': label}, 'traces')
     if traces is None:
         return abort(404, "No form with label {}s".format(label))
-    f = PowerSeriesRing(CC)([0] + traces[:100])
+    f = PowerSeriesRing(CC)([0] + traces[:200])
     I = CC(0, 1)
     D_to_H = lambda x: (1 - I*x)/(x - I)
     H_to_q = lambda x: exp(2*CC.pi()*I*x)
