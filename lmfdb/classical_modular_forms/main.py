@@ -347,7 +347,7 @@ def render_newform_webpage(label):
                            friends=newform.friends,
                            KNOWL_ID="mf.%s" % label)
 
-def render_newform_plot(label, plot_points=500):
+def render_newform_plot(label, plot_points=300):
     traces = db.mf_newforms.lucky({'label': label}, 'traces')
     if traces is None:
         return abort(404, "No form with label {}s".format(label))
@@ -368,7 +368,7 @@ def render_newform_plot(label, plot_points=500):
                       pad_inches=0,
                       bbox_inches='tight',
                       remove_axes=True)
-    return '<img src="{}">'.format(png)
+    return r'<img src="{}">'.format(png)
 
 
 def render_embedded_newform_webpage(newform_label, embedding_label):
