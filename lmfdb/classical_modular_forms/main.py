@@ -369,8 +369,8 @@ def render_newform_plot(label, plot_points=300):
                       pad_inches=0,
                       bbox_inches='tight',
                       remove_axes=True,
-                      dpi=300)
-    return r'<img src="{}">'.format(png)
+                      dpi=200)
+    return r'<img src="{}"></div>'.format(png)
 
 
 def render_embedded_newform_webpage(newform_label, embedding_label):
