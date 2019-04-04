@@ -552,7 +552,7 @@ class Lfunction_from_db(Lfunction):
         constructor_logger(self, kwargs)
         if 'Lhash' not in kwargs and 'url' not in kwargs:
             raise KeyError('Unable to construct L-function from Lhash or url',
-                               'Missing required parameters: Lhash or url')
+                           'Missing required parameters: Lhash or url')
         self.numcoeff = 30
 
         self.__dict__.update(kwargs)
@@ -578,6 +578,7 @@ class Lfunction_from_db(Lfunction):
         # systematically in the database. Default to True until this
         # is retrievable from the database.
         return True
+
     @lazy_attribute
     def bread(self):
         return get_bread(self.degree)
@@ -824,10 +825,7 @@ class Lfunction_from_db(Lfunction):
             self.info['knowltype'] = self.knowltype
 
 
-
-
-
-####################################################################################################
+###############################################################################
 
 class Lfunction_CMF(Lfunction_from_db):
     """Class representing an classical modular form L-function
@@ -855,7 +853,7 @@ class Lfunction_CMF(Lfunction_from_db):
         self.label_args = (self.modform_level, self.weight, self.char_orbit_label, self.hecke_orbit, self.character, self.number)
         self.url = "ModularForm/GL2/Q/holomorphic/%d/%d/%s/%s/%d/%d" % self.label_args
         self.orbit_url = "ModularForm/GL2/Q/holomorphic/%d/%d/%s/%s" % self.label_args[:4]
-        Lfunction_from_db.__init__(self, url = self.url)
+        Lfunction_from_db.__init__(self, url=self.url)
 
         self.numcoeff = 30
 
@@ -879,13 +877,6 @@ class Lfunction_CMF(Lfunction_from_db):
         if not any(root_orbit_url == elt[1] for elt in lfriends):
             lfriends += names_and_urls([self.orbit_url])
         return lfriends
-
-#    def _set_title(self):
-#        title = "L-function of a homomorphic cusp form of weight %s, level %s, and %s" % (
-#            self.weight, self.level, self.chilatex)
-#
-#        self.info['title'] = self.info['title_analytic'] = self.info['title_arithmetic'] = title
-#
 
 #############################################################################
 
@@ -913,8 +904,7 @@ class Lfunction_CMF_orbit(Lfunction_from_db):
         self.__dict__.update(kwargs)
         self.label_args = (self.modform_level, self.weight, self.char_orbit_label, self.hecke_orbit)
         self.url = "ModularForm/GL2/Q/holomorphic/%d/%d/%s/%s" % self.label_args
-        self.Lhash = self.get_Lhash_by_url(self.url)
-        Lfunction_from_db.__init__(self, Lhash = self.Lhash)
+        Lfunction_from_db.__init__(self, url=self.url)
 
         self.numcoeff = 30
 
@@ -931,22 +921,77 @@ class Lfunction_CMF_orbit(Lfunction_from_db):
         return get_bread(self.degree, [('Cusp Form', url_for('.l_function_cuspform_browse_page', degree='degree' + str(self.degree)))])
 
 
+class Lfunction_HMF_orbit(Lfunction_from_db):
+    """
+    Class representing an hilbert modular form L-function for a Galois orbit
 
-#    def _set_title(self):
-#        conductor_str = "$ %s $" % latex(self.modform_level)
-#        title = "L-function of a Hecke orbit of a homomorphic cusp form of weight %s and level %s" % (
-#            self.weight, conductor_str)
-#
-#        self.info['title'] = self.info['title_analytic'] = self.info['title_arithmetic'] = title
-#
-#################################################################################################
+    Compulsory parameters: field
+                           label
+    """
 
+    def __init__(self, **kwargs):
+        constructor_logger(self, kwargs)
+        validate_required_args(
+                'Unable to construct Hilbert modular form L-function.',
+                kwargs, 'field','label')
+        self.kwargs = kwargs
+        # Put the arguments in the object dictionary
+        self.__dict__.update(kwargs)
+        self.url = "/ModularForm/GL2/TotallyReal/%s/holomorphic/%s/" % (self.field, self.label)
+        self.Lhash = self.get_Lhash_by_url(self.url)
+        Lfunction_from_db.__init__(self, Lhash=self.Lhash)
+        self.numcoeff = 30
+
+    @lazy_attribute
+    def _Ltype(self):
+        return  "Hilbert modular form orbit"
+
+    @lazy_attribute
+    def origin_label(self):
+        return self.label
+
+
+class Lfunction_BMF_orbit(Lfunction_from_db):
+    """
+    Class representing an bianchi modular form L-function for a Galois orbit
+
+    It should be called with a dictionary of the form:
+
+    dict = {'field_label': <field_label>,
+            'conductor_label': <conductor_label>,
+            'orbit_label': <orbit_label>}
+    """
+
+    def __init__(self, **kwargs):
+        constructor_logger(self, kwargs)
+        validate_required_args(
+                'Unable to construct Bianchi modular form L-function.',
+                               kwargs, 'field_label', 'conductor_label',
+                               'orbit_label')
+
+        # Put the arguments into the object dictionary
+        self.__dict__.update(kwargs)
+
+        self.label_args = (self.field, self.conductor_label, self.orbit_label)
+
+        self.url = "ModularForm/GL2/ImaginaryQuadratic/%s/%s/%s/" % (self.label_args)
+        Lfunction_from_db.__init__(self, url=self.url)
+
+        self.numcoeff = 30
+
+    @lazy_attribute
+    def _Ltype(self):
+        return  "Bianchi modular form orbit"
+
+    @lazy_attribute
+    def origin_label(self):
+        return "-".join(self.label_args)
 
 class Lfunction_EC(Lfunction_from_db):
     """
     Class representing an elliptic curve L-function
     over a number field, possibly QQ.
-    It should be called with a dictionary of the forms:
+    It should be called with a dictionary of the form:
 
     dict = { 'field_label': <field_label>, 'conductor_label': <conductor_label>,
              'isogeny_class_label': <isogeny_class_label> }
@@ -964,9 +1009,10 @@ class Lfunction_EC(Lfunction_from_db):
         self._parse_labels()
 
         self.url = "EllipticCurve/%s/%s/%s" % (self.field,
-                                                        self.conductor_label,
-                                                        self.isogeny_class_label)
-        Lfunction_from_db.__init__(self, url = self.url)
+                                               self.conductor_label,
+                                               self.isogeny_class_label)
+
+        Lfunction_from_db.__init__(self, url=self.url)
 
         self.numcoeff = 30
 
@@ -986,12 +1032,6 @@ class Lfunction_EC(Lfunction_from_db):
             self.field_real_signature,
             self.field_absdisc,
             self.field_index)  = map(int, self.field_label.split("."))
-        #field_signature = [self.field_real_signature,
-        #        (self.field_degree - self.field_real_signature) // 2]
-        # number of actual Gamma functions
-        #self.quasidegree = sum( field_signature )
-        #self.ec_conductor_norm  = int(self.conductor_label.split(".")[0])
-        #self.conductor = self.ec_conductor_norm * (self.field_absdisc ** self.field_degree)
         self.long_isogeny_class_label = self.conductor_label + '.' + self.isogeny_class_label
         return
 
@@ -1102,10 +1142,6 @@ class Lfunction_genus2_Q(Lfunction_from_db):
                             instancesf = get_instances_by_Lhash(factor_Lhash)
                         instances.extend(instancesf)
         return names_and_urls(instances)
-
-    #def _set_title(self):
-    #    title = "L-function of the Jacobian of a genus 2 curve with label %s" %  (self.origin_label)
-    #    self.info['title'] = self.info['title_analytic'] = self.info['title_arithmetic'] = title
 
 
 
