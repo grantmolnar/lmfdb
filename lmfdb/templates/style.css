@@ -36,9 +36,10 @@ h2.link > a {
     text-decoration: none;
     margin: 15px 0;
 }
-#content > h1:first-child,
-#content > h2:first-child {
+#content > h1:first-of-type,
+#content > h2:first-of-type {
     margin-top: 0px;
+    padding-top: 2px;
 }
 
 #content > h2
@@ -49,8 +50,8 @@ h2.link > a {
     text-align: left;
     font-weight: bold;
     color: {{color.a_text}};
-    padding: 5px 0 5px 0;
-    margin: 15px 0 10px 0;
+    padding: 5px 0;
+    margin: 10px 0;
 }
 #content > h3, td.table_h2 {
     font-family: sans-serif;
@@ -67,6 +68,14 @@ h2.link > a {
     color: {{color.col_main}};
 }
 
+#content p {
+  padding-left: 1ch;
+}
+
+#content ul {
+  padding-left: 24px;
+}
+
 #content > h2.inline,
 #content > h3.inline {
     font-weight: normal;
@@ -77,10 +86,10 @@ h2.link > a {
 
 #footer {
     clear: both;
-    margin-top: 40px;
+    margin-top: 20px;
     background-color: {{color.footer_background}};
-    border-top: 2px solid {{ color.footer_border }};
-    padding: 25px 10px;
+    padding-top: 6px;
+    padding-bottom: 10px;
     text-align: center;
     font-size: 75%;
     color: {{color.footer_text}};
@@ -177,27 +186,25 @@ a:hover {
 
 #header {
   background: {{color.header_background}};
-  box-shadow: 0px 5px 5px {{color.header_shadow}};
 }
 
 body.knowl #header {
   background: {{ color.knowl_l }};
-  box-shadow: 0px 5px 5px {{color.knowl_shadow}};
 }
 
 #header #logo {
     display: inline-block;
     margin: 0px;
     padding-top: 8px;
-    padding-left: 40px;
+    padding-left: 46px;
 }
 #header #logo img {
-    max-height: 70px;
+    max-height: 50px;
 }
 #header .right {
     margin-top: 0px;
     display: inline-block;
-    padding-left: 48px;
+    padding-left: 60px;
     vertical-align: top;
     width: calc(100% - 210px);
 }
@@ -205,7 +212,7 @@ body.knowl #header {
     font-size: 180%;
     font-weight: bold;
     font-family: sans-serif;
-    padding-top: 25px;
+    padding-bottom: 2px;
     color: {{color.header_text_title}};
 }
 
@@ -289,9 +296,9 @@ body.knowl #header {
 }
 
 #main {
-  margin:  0px 0px 0px 200px;
+  margin:  0px 0px 0px 184px;
   padding: 0px 0px 0px 10px;
-  min-height: 700px;
+  min-height:600px;
 }
 
 .debug {
@@ -300,8 +307,8 @@ body.knowl #header {
 }
 
 body > .debug {
-    margin: 20px;
-    padding: 2px;
+    margin: 10px 20px 20px 200px;
+    padding: 5px;
 }
 
 
@@ -387,13 +394,15 @@ body > .debug {
 .properties-header {
   border-top-left-radius: 10px;
   margin: 0;
-  margin-top: 10px;
   padding: 5px 9px;
   color: {{ color.properties_header_text }};
   background: {{ color.properties_header_background }};
   font-size: 14px;
   cursor: pointer;
   padding-right: 30px;
+}
+.properties-header ~ .properties-header {
+  margin-top: 5px;
 }
 #properties-collapser {
   cursor: pointer;
@@ -405,13 +414,13 @@ body > .debug {
   width: 20px;
   height: 17px;
   position: absolute;
-  top:   12px;
+  top:   4px;
   right: 3px;
   {{ BORDER_RADIUS(20) }}
 }
 
 #content {
-  margin-top: 20px;
+  margin-top: 10px;
   font-size: 95%;
   line-height: 135%;
   padding-right: 10px;
@@ -424,13 +433,12 @@ body > .debug {
 
 #sidebar {
   float: left;
-  width: 200px;
-  margin: 20px 0px 0px 0px;
+  width: 184px;
+  margin: 10px 0px;
   font-family: sans-serif;
   font-size: 85%;
   color: {{color.sidebar_text}};
   background: {{color.sidebar_background}};
-  margin-bottom: 100px;
   border-top-right-radius: 10px;
   border-bottom-right-radius: 10px;
 }
@@ -457,10 +465,7 @@ body > .debug {
     background-color: {{ color.sidebar_background_h2 }};/*sidebar tabs*/
     color: {{ color.sidebar_text_h2 }};
     padding: 5px;
-    margin: 15px 0 0 0;
-}
-#sidebar h2:first-child {
-  margin-top: 0;
+    margin: 0;
 }
 
 #sidebar ul:first-child a:first-child,
@@ -470,7 +475,8 @@ body > .debug {
   border-top-right-radius: 10px;
 }
 #sidebar ul:last-child li:last-child,
-#sidebar ul:last-child li:last-child a {
+#sidebar ul:last-child li:last-child a,
+#sidebar h2:last-child {
   border-bottom-right-radius: 10px;
 }
 #sidebar ul {
@@ -549,7 +555,7 @@ body.intro #sidebar a.intro { background: {{ color.sidebar_bkg_highlight }}; }
 td.forminfo {
    font-size: 80%;
    font-style: italic;
-   color: {{color.grey}};
+   color: #333333;
    vertical-align: top;
 }
 
@@ -561,7 +567,7 @@ input, textarea {
 }
 /* TODO: above? */
 
-button, select {
+button, select, a.like-button {
   padding: 3px 6px;
   border-radius: 4px;
   cursor: pointer;
@@ -569,8 +575,34 @@ button, select {
   min-width: 75px;
 }
 
-button {
-   background: {{color.button_background}};
+button, a.like-button {
+  background: {{color.button_background}};
+}
+
+a.like-button {
+  color: {{color.black}};
+  font-size: 11px;
+  padding: 6px 16px 3px 16px;
+}
+
+button.like-link {
+  background: none!important;
+  border: none!important;
+  padding: 0!important;
+  cursor: pointer;
+
+  color: {{color.col_link}};
+  text-decoration: none;
+  font-family: sans-serif;
+  min-width: 0px;
+  font-size: 15px;
+}
+button.like-link:visited {
+  color: {{color.a_text_visited}};
+}
+button.like-link:hover {
+  color: {{color.a_text_hover}};
+  background: {{color.a_background_hover}};
 }
 
 select {
@@ -603,6 +635,11 @@ button.inactive:hover {
     border: 2px solid {{color.button_border_inactive}};
 }
 
+/* HGCWA */
+.tab button.active {
+    background-color: {{color.col_main_ll}}; <!-- col_main_ll -->
+}
+
 body.knowl form button:hover,
 body.knowl form select:hover {
     background:    {{color.knowl_hover}};
@@ -633,6 +670,14 @@ table.newforms {
     clear: right;
 }
 
+table.browse td {
+  vertical-align: top;
+  padding: 7px 0px 7px 10px;
+}
+table.browse td:first-child {
+  white-space: nowrap;
+}
+
 table.ntdata .knowl-header a,
 table.ntdata .knowl-footer a,
 table.ntdata a.knowl-link,
@@ -643,17 +688,23 @@ table a[knowl] {
   padding: 0;
 }
 
-table.ntdata a {
+table.ntdata td>a {
   display: block;
 }
+
 table.chardata a {
   display: inline;
 }
+
 table td.top {
   vertical-align:top;
 }
 table.ntdata td {
   white-space: nowrap;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-right: 7px;
+  padding-left: 7px;
 }
 
 table a:hover {
@@ -661,23 +712,39 @@ table a:hover {
 }
 
 
+
 table td.spacing {
   height: 20px;
 }
 
+
 table.ntdata {
   width: auto;
-  border: 0;
+  border: 3px;
+  margin-left: 5%;
   margin-top: 15px;
   margin-bottom: 15px;
 }
-table.ntdata thead tr {
+table.ntdata thead th {
   background: {{ color.table_ntdata_background }};
+}
+table.ntdata > thead {
   border-bottom: 2px solid {{ color.table_ntdata_border }};
+}
+table.ntdata > thead > tr.bottomlined {
+  border-bottom: 2px solid {{ color.table_ntdata_border }};
+}
+table.ntdata tr.toplined {
+  border-top: 2px solid {{ color.table_ntdata_border }};
 }
 
 table.ntdata th {
   text-align: left;
+  padding-right: 7px;
+  padding-left: 7px;
+}
+table.ntdata.centered th, table.ntdata.centered td {
+  text-align: center;
 }
 
 table.ntdata > tr.odd,
@@ -692,6 +759,10 @@ table.ntdata > thead > tr:first-child {
     background: {{color.table_ntdata_background_c1}};
 }
 
+table.ntdata > tbody > tr:last-child {
+    border-bottom:  2px solid {{ color.table_ntdata_border }};
+}
+
 table.ntdata > tr.even,
 table.ntdata > tbody > tr.even,
 table.ntdata > thead > tr.even,
@@ -699,6 +770,13 @@ table.ntdata > tr:nth-child(even),
 table.ntdata > tbody > tr:nth-child(even),
 table.ntdata > thead > tr:nth-child(even) {
     background: {{color.table_ntdata_background_cn}};
+}
+table.ntdata tr.toggle { font-size: 80%; text-align: left; }
+table.ntdata tr.toggle:nth-child(2n) { 
+    background: {{color.table_ntdata_background_c1}};
+}
+table.ntdata tr.toggle a:hover {
+  background: {{color.table_ntdata_background_c1}};
 }
 
 table.ntdata tr.line {
@@ -711,6 +789,43 @@ table.ntdata tr.endsection {
 table.right_align_table td {
   text-align: right;
 }
+
+
+
+
+table.number_table td
+{
+text-align:right;
+border:0px;
+cellpadding:3px;
+
+}
+
+
+table.number_table {
+  border-collapse:collapse;
+  border: 3px;
+  margin-left: 7px;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+table.number_table tr:nth-child(even) {
+    background: {{color.table_ntdata_background_cn}};
+}
+
+table.number_table thead th {
+  border-bottom: 2px solid {{ color.table_ntdata_border }};
+}
+
+table.number_table thead th:first-child{
+border-right: 2px solid {{ color.table_ntdata_border }};
+}
+
+table.number_table tbody th  {
+  border-right: 2px solid {{ color.table_ntdata_border }};
+}
+
 
 /* TODO: where? */
 div.literature {
@@ -917,6 +1032,9 @@ table.ntdata tr.first {
 table.ntdata .border-right {
   border-right: 2px solid {{ color.table_ntdata_border }};
 }
+table.ntdata .border-left {
+  border-left: 2px solid {{ color.table_ntdata_border }};
+}
 table.ntdata .border-bottom {
   border-bottom: 2px solid {{ color.table_ntdata_border }};
 }
@@ -932,9 +1050,13 @@ table.ntdata .right {
 td.right {
     text-align: right;
 }
+td.center {
+    text-align: center;
+}
 table.ntdata .middle {
     vertical-align: middle;
 }
+
 table.ntdata tr.dark td {
     background: {{color.table_ntdata_background_2}};
 }
@@ -961,6 +1083,7 @@ table.knowl_review tr:first-child td {
 table.knowl_review tr:nth-child(even) {
     background: {{ color.table_ntdata_background_2 }};
 }
+
 table.euler {
     margin-left:auto;
     margin-right:auto;
@@ -1161,6 +1284,50 @@ div.limit-height {
 
 /* end knowl */
 
+/* Copied from charpage.html */
+
+.dirich-output {
+    padding:10px 0 10px 10px;
+    text-align: left;
+    font-size: 115%;
+}
+table.navi td {
+    padding: 0;
+}
+table.props tr td:first-child {
+    width: 5em;
+}
+
+table.values {
+  width: auto;
+  border: 0;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+table.values a {
+  display: block;
+}
+table.values thead tr {
+    border-bottom: 1px dotted gray;
+}
+table.values th {
+  text-align: center;
+  font-weight: normal;
+}
+
+table.values td.odd,
+table.values td:nth-child(odd),
+table.values td:first-child {
+ background: {{color.chi_table_background_off}};
+}
+
+table.values td.even,
+table.values td:nth-child(even) {
+ background: {{color.chi_table_background}};
+}
+
+/* end copied from charpage.html */
+
 /*** Dirichlet series, displayed in HTML ***/
 
 .dirichletseries {
@@ -1224,6 +1391,7 @@ div.limit-height {
     border: 1px solid {{color.black}};
 }
 
+/* FIXME: I think we no longer use this */
 .watermark {
     color: {{color.grey}} !important;
 }
@@ -1256,7 +1424,8 @@ a.navlink {
   outline: 1px solid {{color.a_nav_background}};
   text-decoration: none;
   margin-left: 1px;
-  margin-top: 10px
+  margin-top: 10px;
+  vertical-align: top;
 }
 
 hr {
@@ -1767,7 +1936,6 @@ div.box {
 div.codebox {
     padding: 5px;
     text-padding: 10px;
-    overflow: auto;
     border: 1px solid {{color.knowl_thin_border}};
     border-radius: 5px;
     background-color: {{color.knowl_background}};
@@ -1811,7 +1979,6 @@ div.maassformplot img {
 
 #sidebar .heading {
     padding-right: 1px;
-    padding-left: 2px;
     margin-bottom: 1px;
 }
 
@@ -2099,6 +2266,9 @@ div.table-scroll-wrapper thead > tr:last-child > th {
     position: sticky; left: 0; top: 0;
     z-index:3;
 }
+table.nowrap td {
+    white-space:nowrap;
+}
 td.nowrap {
     white-space:nowrap;
 }
@@ -2115,6 +2285,10 @@ table.ntdata td.nowrap a {
 
 #complex_embeddings {
     padding-top: 10px;
+}
+
+table.coeff_ring_basis {
+    margin-left: 14px;
 }
 
 table.coeff_ring_basis td {
@@ -2189,7 +2363,7 @@ table.qexp-table td.op {
 td.topspace {
     padding-top: 15px;
 }
-table.qexp-table td.output {
+table.qexp-table td.qexp-output {
     margin-left: 0;
     padding-left: 0;
     vertical-align: top;
@@ -2213,7 +2387,7 @@ input::placeholder {
   white-space: nowrap;
 }
 
-/* an horizonal list with bullet points */
+/* an horizontal list with bullet points */
 ul.horizontal-list {
   display:inline-block;
   padding:0;
@@ -2234,3 +2408,49 @@ ul.horizontal-list li:after {
 input.color_selecter {
     margin: 10px;
 }
+
+span.chargp {
+    color: {{color.col_main}};
+}
+
+span.normgp {
+    color: #BB1188;
+}
+
+span.activesubgp {
+    background: {{color.col_main_ll}};
+    }
+/* the button to show advanced search options */
+#advancedtoggle {
+    margin-left: 20px;
+}
+
+/* the advanced search options themselves, hidden by default */
+.advanced {
+    display: none;
+}
+
+span.chargp {
+    color: {{color.col_main}};
+}
+
+span.normgp {
+    color: #BB1188;
+}
+
+span.activesubgp {
+    background: {{color.col_main_ll}};
+}
+.tset-icon {
+  visibility: hidden;
+}
+
+.tset-container:hover .tset-icon {
+  visibility: visible;
+}
+
+#group-diagram-selected {
+    color: {{ color.sidebar_background_h2 }};/*same as sidebar tabs*/
+    background-color: {{ color.sidebar_background_h2 }};/*same as sidebar tabs*/
+}
+

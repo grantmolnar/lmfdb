@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 # HeckeCharacters.py
-
 from sage.all import gp, xmrange, Integer, pari, gcd, LCM, prod
 from sage.misc.cachefunc import cached_method
 from sage.groups.abelian_gps.abelian_group import AbelianGroup_class
 from sage.groups.abelian_gps.abelian_group_element import AbelianGroupElement
 from sage.groups.abelian_gps.dual_abelian_group import DualAbelianGroup_class, DualAbelianGroupElement
 
+
 class RayClassGroup(AbelianGroup_class):
     def __init__(self, number_field, mod_ideal = 1, mod_archimedean = None):
-        if mod_archimedean == None:
+        if mod_archimedean is None:
             mod_archimedean = [0] * len(number_field.real_places())
         mod_ideal = number_field.ideal( mod_ideal )
 
@@ -51,7 +51,7 @@ class RayClassGroup(AbelianGroup_class):
     def _element_constructor_(self, *args, **kwargs):
         try:
             return AbelianGroupElement(args[0], self)
-        except:
+        except Exception:
             I = self.__number_field.ideal(*args, **kwargs)
             return AbelianGroupElement(self, self.log(I))
 
@@ -141,7 +141,7 @@ class HeckeChar(DualAbelianGroupElement):
     def logvalue(self, x):
         try:
             E = self.parent().group()(x)
-        except:
+        except Exception:
             return None
         E = E.exponents()
         F = self.exponents()
@@ -159,7 +159,7 @@ class HeckeChar(DualAbelianGroupElement):
     def __call__(self, x):
         try:
             logx = self.parent().group()(x)
-        except:
+        except Exception:
             return 0
         return DualAbelianGroupElement.__call__(self,logx)
 
@@ -195,7 +195,7 @@ class HeckeChar(DualAbelianGroupElement):
 
     def galois_orbit(self):
         order = self.multiplicative_order()
-        return [ self.__pow__(k) for k in xrange(order) if gcd(k,order) == 1 ]
+        return [ self.__pow__(k) for k in range(order) if gcd(k,order) == 1 ]
 
 """
 k.<a> = NumberField(x^4+7*x^2+13)

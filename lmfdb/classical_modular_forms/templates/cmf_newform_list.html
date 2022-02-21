@@ -6,9 +6,9 @@
 
 <table class="ntdata">
   <thead>
-    <tr class="middle dark">
+    <tr class="middle bottomlined">
       <th rowspan=2>{{ KNOWL('cmf.label', title='Label') }}</th>
-      <th rowspan=2>{{ KNOWL('cmf.dimension_galois_orbit', title='Dim.') }}</th>
+      <th rowspan=2>{{ KNOWL('cmf.dimension', title='Dim.') }}</th>
       <th rowspan=2>{{ KNOWL('cmf.analytic_conductor', title='\(A\)') }}</th>
       <th rowspan=2>{{ KNOWL('cmf.coefficient_field', title='Field') }}</th>
       {% if Projective_image %}
@@ -21,14 +21,14 @@
       <th colspan=4 class="center">{{ KNOWL('cmf.trace_form', title='Traces') }}</th>
       {% if AL_signs %}
       <th rowspan=2></th>
-      <th class="center" colspan={{info.results[0]['atkin_lehner_eigenvals'] | length}}> {{ KNOWL('cmf.atkinlehner', title='A-L signs') }}</th>
+      <th class="center" colspan={{info.results[0]['atkin_lehner_eigenvals'] | length}}> {{ KNOWL('cmf.atkin-lehner', title='A-L signs') }}</th>
       {% elif Fricke_sign %}
       <th class="center" rowspan=2>{{ KNOWL('cmf.fricke', title='Fricke sign') }}</th>
       {% endif %}
 
       <th rowspan=2>{{ KNOWL('cmf.q-expansion', title='$q$-expansion') }}</th>
     </tr>
-    <tr class="dark">
+    <tr>
       <th class="right">\(a_2\)</th>
       <th class="right">\(a_3\)</th>
       <th class="right">\(a_5\)</th>

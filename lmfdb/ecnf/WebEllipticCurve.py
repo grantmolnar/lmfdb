@@ -1,42 +1,14 @@
-import os
-import yaml
 from flask import url_for
-from urllib import quote
-from sage.all import (Factorization, Infinity, PolynomialRing, QQ, RDF, ZZ,
+from urllib.parse import quote
+from sage.all import (Infinity, PolynomialRing, QQ, RDF, ZZ, KodairaSymbol,
                       implicit_plot, plot, prod, rainbow, sqrt, text, var)
 from lmfdb import db
 from lmfdb.utils import (encode_plot, names_and_urls, web_latex,
-                         web_latex_split_on, web_latex_ideal_fact)
+                         web_latex_split_on)
 from lmfdb.number_fields.web_number_field import WebNumberField
 from lmfdb.sato_tate_groups.main import st_link_by_name
 from lmfdb.lfunctions.LfunctionDatabase import (get_lfunction_by_url,
                                         get_instances_by_Lhash_and_trace_hash)
-
-# For backwards compatibility of labels of conductors (ideals) over
-# imaginary quadratic fields we provide this conversion utility.  Labels have been of 3 types:
-# 1. [N,c,d] with N=norm and [N/d,0;c,d] the HNF
-# 2. N.c.d
-# 3. N.i with N=norm and i the index in the standard list of ideals of norm N (per field).
-#
-# Converting 1->2 is trivial and 2->3 is done via a stored lookup
-# table, which contains entries for the five Euclidean imaginary
-# quadratic fields 2.0.d.1 for d in [4,8,3,7,11] and all N<=10000.
-#
-
-def convert_IQF_label(fld, lab):
-    if fld.split(".")[:2] != ['2','0']:
-        return lab
-    newlab = lab
-    if lab[0]=='[':
-        newlab = lab[1:-1].replace(",",".")
-    if len(newlab.split("."))!=3:
-        return newlab
-    newlab = db.ec_iqf_labels.lucky({'fld':fld, 'old':newlab}, projection = 'new')
-    if newlab:
-        if newlab!=lab:
-            print("Converted label {} to {} over {}".format(lab, newlab, fld))
-        return newlab
-    return lab
 
 special_names = {'2.0.4.1': 'i',
                  '2.2.5.1': 'phi',
@@ -77,63 +49,37 @@ from sage.misc.all import latex
 def web_point(P):
     return '$\\left(%s\\right)$'%(" : ".join([str(latex(x)) for x in P]))
 
-def ideal_from_string(K,s, IQF_format=False):
-    r"""Returns the ideal of K defined by the string s.  If IQF_format is
-    True, this is "[N,c,d]" with N,c,d as in a label, while otherwise
-    it is of the form "[N,a,alpha]" where N is the norm, a the least
-    positive integer in the ideal and alpha a second generator so that
-    the ideal is (a,alpha).  alpha is a polynomial in the variable w
-    which represents the generator of K (but may actually be an
-    integer).  """
-    #print("ideal_from_string({}) over {}".format(s,K))
-    N, a, alpha = s[1:-1].split(",")
-    N = ZZ(N)
-    a = ZZ(a)
-    if IQF_format:
-        d = ZZ(alpha)
-        I = K.ideal(N//d, K([a, d]))
-    else:
-        # 'w' is used for the generator name for all fields for
-        # numbers stored in the database
-        alpha = alpha.encode().replace('w',str(K.gen()))
-        I = K.ideal(a,K(alpha.encode()))
-    if I.norm()==N:
-        return I
-    else:
-        return "wrong" ## caller must check
+def pretty_ideal(Kgen, s, enclose=True):
+    r"""Returns the a latex string an ideal of K defined by the string s,
+    where Kgen is a strong representing the generator of K.  NB 'w' is
+    used for the generator name for all fields for numbers stored in
+    the database, and elements of K within the string s are
+    polynomials in 'w'.
 
-def pretty_ideal(I):
-    easy = I.number_field().degree()==2 or I.norm()==1
-    gens = I.gens_reduced() if easy else I.gens()
-    return "\((" + ",".join([latex(g) for g in gens]) + ")\)"
+    s has the form "(g1)" or "(g1,g2)", ... where the gi are ideal
+    generators.
 
-# HNF of an ideal I in a quadratic field
-
-def ideal_HNF(I):
-    r"""
-    Returns an HNF triple defining the ideal I in a quadratic field
-    with integral basis [1,w].
-
-    This is a list [a,b,d] such that [a,c+d*w] is a Z-basis of I, with
-    a,d>0; c>=0; N = a*d = Norm(I); d|a and d|c; 0 <=c < a.
+    If enclose==True (default) then latex math delimiters are pre- and
+    appended.
     """
-    N = I.norm()
-    a, c, b, d = I.pari_hnf().python().list()
-    assert a > 0 and d > 0 and N == a * d and d.divides(a) and d.divides(b) and 0 <= c < a
-    return [a, c, d]
+    gens = s.replace('w', Kgen).replace("*","")
+    if Kgen == 'phi':
+        gens = gens.replace(Kgen, r"\phi")
+    return r"\(" + gens + r"\)" if enclose else gens
+    
+def latex_factorization(plist, exponents, sign=+1):
+    """plist is a list of strings representing prime ideals P (or other things) in latex without math delimiters.
+    exponents is a list (of the same length) of non-negative integer exponents e, possibly  0.
 
-def ideal_to_string(I,IQF_format=False):
-    K = I.number_field()
-    if IQF_format:
-        a, c, d = ideal_HNF(I)
-        return "[%s,%s,%s]" % (a * d, c, d)
-    N = I.norm()
-    a = I.smallest_integer()
-    gens = I.gens_reduced()
-    alpha = gens[-1]
-    assert I == K.ideal(a,alpha)
-    alpha = str(alpha).replace(str(K.gen()),'w')
-    return ("[%s,%s,%s]" % (N,a,alpha)).replace(" ","")
+    output is a latex string for the product of the P^e.
+
+    When the factors are integers (for the factorization of a norm,
+    for example) set sign=-1 to preprend a minus sign.
+
+    """
+    factors = ["{}^{{{}}}".format(q,n) if n>1 else "{}".format(q) if n>0 else "" for q,n in zip(plist, exponents)]
+    factors = [f for f in factors if f] # exclude any factors with exponent 0
+    return r"\({}{}\)".format("-" if sign==-1 else "", r"\cdot".join(factors))
 
 def parse_point(K, s):
     r""" Returns a point in P^2(K) defined by the string s.  s has the form
@@ -226,9 +172,58 @@ def EC_nf_plot(K, ainvs, base_field_gen_name):
             cols = ["red", "darkorange", "gold", "forestgreen", "blue", "darkviolet"]
         elif n1==7:
             cols = ["red", "darkorange", "gold", "forestgreen", "blue", "darkviolet", "fuchsia"]
-        return sum([EC_R_plot([S[i](c) for c in ainvs], xmin, xmax, ymin, ymax, cols[i], "$" + base_field_gen_name + " \mapsto$ " + str(S[i].im_gens()[0].n(20))+"$\dots$") for i in range(n1)]) 
-    except:
+        return sum([EC_R_plot([S[i](c) for c in ainvs], xmin, xmax, ymin, ymax, cols[i], "$" + base_field_gen_name + r" \mapsto$ " + str(S[i].im_gens()[0].n(20)) + r"$\dots$") for i in range(n1)])
+    except Exception:
         return text("Unable to plot", (1, 1), fontsize=36)
+
+def ec_disc(ainvs):
+    """
+    Return disciminant of a Weierstrass equation from its list of a-invariants.
+    (Temporary function pending inclusion of model discriminant in database.)
+    """
+    a1, a2, a3, a4, a6 = ainvs
+    b2 = a1*a1 + 4*a2
+    b4 = a3*a1 + 2*a4
+    b6 = a3*a3 + 4*a6
+    c4 = b2*b2 - 24*b4
+    c6 = -b2*b2*b2 + 36*b2*b4 - 216*b6
+    return (c4*c4*c4 - c6*c6) / 1728
+
+def latex_equation(ainvs):
+    a1, a2, a3, a4, a6 = ainvs
+
+    def co(coeff):
+        pol = coeff.polynomial()
+        mons = pol.monomials()
+        n = len(mons)
+        if n==0:
+            return ""
+        if n>1:
+            return r"+\left({}\right)".format(latex(coeff))
+        # now we have a numerical coefficient times a power of the generator
+        if coeff == 1:
+            return "+"
+        if coeff == -1:
+            return "-"
+        co = pol.monomial_coefficient(mons[0])
+        s = "+" if co > 0 else ""
+        return "{}{}".format(s, latex(coeff))
+
+    def term(coeff, mon):
+        if not coeff:
+            return ""
+        if not mon:
+            return "+{}".format(latex(coeff)).replace("+-","-")
+        return "{}{}".format(co(coeff), mon)
+
+    return ''.join([r'y^2',
+                    term(a1,'xy'),
+                    term(a3,'y'),
+                    '=x^3',
+                    term(a2,'x^2'),
+                    term(a4,'x'),
+                    term(a6,''),
+                    r''])
 
 class ECNF(object):
 
@@ -256,119 +251,105 @@ class ECNF(object):
         data = db.ec_nfcurves.lookup(label)
         if data:
             return ECNF(data)
-        print "No such curve in the database: %s" % label
+        return "Elliptic curve not found: %s" % label # caller must check for this
 
     def make_E(self):
         #print("Creating ECNF object for {}".format(self.label))
         #sys.stdout.flush()
         K = self.field.K()
-
+        Kgen = str(K.gen())
+        
         # a-invariants
+        # NB Here we construct the ai as elements of K, which are used as follows:
+        # (1) to compute the model discriminant (if not stored)
+        # (2) to compute the latex equation (if not stored)
+        # (3) to compute the plots under real embeddings of K
+        # Of these, (2) is not needed and (1) will soon be obsolete;
+        #  for (3) it would be possible to rewrite the function EC_nf_plot() not to need this.
+        # Then we might also be able to avoid constructing the field K also.
+
         self.ainvs = parse_ainvs(K,self.ainvs)
-        self.latex_ainvs = web_latex(self.ainvs)
         self.numb = str(self.number)
 
         # Conductor, discriminant, j-invariant
-        if self.conductor_norm==1:
-            N = K.ideal(1)
-        else:
-            N = ideal_from_string(K,self.conductor_ideal)
-        # The following can trigger expensive computations!
-        #self.cond = web_latex(N)
-        self.cond = pretty_ideal(N)
-        self.cond_norm = web_latex(self.conductor_norm)
-        local_data = self.local_data
 
-        # NB badprimes is a list of primes which divide the
-        # discriminant of this model.  At most one of these might
-        # actually be a prime of good reduction, if the curve has no
-        # global minimal model.
-        badprimes = [ideal_from_string(K,ld['p']) for ld in local_data]
-        badnorms = [ZZ(ld['normp']) for ld in local_data]
+        self.cond_norm = web_latex(self.conductor_norm)
+
+        Dnorm = self.normdisc
+        self.disc = pretty_ideal(Kgen, self.disc)
+
+        local_data = self.local_data
+        local_data.sort(key=lambda ld: ld['normp'])
+
+        badprimes = [pretty_ideal(Kgen, ld['p'], enclose=False) for ld in local_data]
+        badnorms = [ld['normp'] for ld in local_data]
+        disc_ords = [ld['ord_disc'] for ld in local_data]
         mindisc_ords = [ld['ord_disc'] for ld in local_data]
+        cond_ords = [ld['ord_cond'] for ld in local_data]
+
+        if self.conductor_norm == 1:
+            self.cond = r"\((1)\)"
+            self.fact_cond = self.cond
+            self.fact_cond_norm = '1'
+        else:
+            self.cond = pretty_ideal(Kgen, self.conductor_ideal)
+            self.fact_cond      = latex_factorization(badprimes, cond_ords)
+            self.fact_cond_norm = latex_factorization(badnorms,  cond_ords)
 
         # Assumption: the curve models stored in the database are
         # either global minimal models or minimal at all but one
         # prime, so the list here has length 0 or 1:
 
-        self.non_min_primes = [ideal_from_string(K,P) for P in self.non_min_p]
-        self.is_minimal = (len(self.non_min_primes) == 0)
+        self.is_minimal = (len(self.non_min_p) == 0)
         self.has_minimal_model = self.is_minimal
-        disc_ords = [ld['ord_disc'] for ld in local_data]
+
         if not self.is_minimal:
-            Pmin = self.non_min_primes[0]
-            P_index = badprimes.index(Pmin)
-            self.non_min_prime = pretty_ideal(Pmin)
-            disc_ords[P_index] += 12
+            non_min_p = self.non_min_p[0]
+            self.non_min_prime = pretty_ideal(Kgen, non_min_p)
+            ip = [ld['p'] for ld in local_data].index(non_min_p)
+            disc_ords[ip] += 12
+            Dnorm_factor = local_data[ip]['normp']**12
 
-        if self.conductor_norm == 1:  # since the factorization of (1) displays as "1"
-            self.fact_cond = self.cond
-            self.fact_cond_norm = '1'
-        else:
-            Nfac = Factorization([(P,ld['ord_cond']) for P,ld in zip(badprimes,local_data)])
-            self.fact_cond = web_latex_ideal_fact(Nfac)
-            Nnormfac = Factorization([(q,ld['ord_cond']) for q,ld in zip(badnorms,local_data)])
-            self.fact_cond_norm = web_latex(Nnormfac)
-
-        # D is the discriminant ideal of the model
-        D = prod([P**e for P,e in zip(badprimes,disc_ords)], K.ideal(1))
-        self.disc = pretty_ideal(D)
-        Dnorm = D.norm()
         self.disc_norm = web_latex(Dnorm)
-        if Dnorm == 1:  # since the factorization of (1) displays as "1"
+        signDnorm = 1 if Dnorm>0 else -1
+        if Dnorm in [1, -1]:  # since the factorization of (1) displays as "1"
             self.fact_disc = self.disc
-            self.fact_disc_norm = '1'
+            self.fact_disc_norm = str(Dnorm)
         else:
-            Dfac = Factorization([(P,e) for P,e in zip(badprimes,disc_ords)])
-            self.fact_disc = web_latex_ideal_fact(Dfac)
-            Dnormfac = Factorization([(q,e) for q,e in zip(badnorms,disc_ords)])
-            self.fact_disc_norm = web_latex(Dnormfac)
+            self.fact_disc      = latex_factorization(badprimes, disc_ords)
+            self.fact_disc_norm = latex_factorization(badnorms, disc_ords, sign=signDnorm)
 
-        if not self.is_minimal:
-            Dmin = ideal_from_string(K,self.minD)
-            self.mindisc = pretty_ideal(Dmin)
-            Dmin_norm = Dmin.norm()
-            self.mindisc_norm = web_latex(Dmin_norm)
-            if Dmin_norm == 1:  # since the factorization of (1) displays as "1"
-                self.fact_mindisc = self.mindisc
-                self.fact_mindisc_norm = self.mindisc
-            else:
-                Dminfac = Factorization([(P,e) for P,edd in zip(badprimes,mindisc_ords)])
-                self.fact_mindisc = web_latex_ideal_fact(Dminfac)
-                Dminnormfac = Factorization([(q,e) for q,e in zip(badnorms,mindisc_ords)])
-                self.fact_mindisc_norm = web_latex(Dminnormfac)
+        if self.is_minimal:
+            Dmin_norm = Dnorm
+            self.mindisc = self.disc
+        else:
+            Dmin_norm = Dnorm // Dnorm_factor
+            self.mindisc = pretty_ideal(Kgen, self.minD)
+
+        self.mindisc_norm = web_latex(Dmin_norm)
+        if Dmin_norm in [1,-1]:  # since the factorization of (1) displays as "1"
+            self.fact_mindisc      = self.mindisc
+            self.fact_mindisc_norm = self.mindisc_norm
+        else:
+            self.fact_mindisc      = latex_factorization(badprimes, mindisc_ords)
+            self.fact_mindisc_norm = latex_factorization(badnorms, mindisc_ords, sign=signDnorm)
 
         j = self.field.parse_NFelt(self.jinv)
-        # if j:
-        #     d = j.denominator()
-        #     n = d * j  # numerator exists for quadratic fields only!
-        #     g = GCD(list(n))
-        #     n1 = n / g
-        #     self.j = web_latex(n1)
-        #     if d != 1:
-        #         if n1 > 1:
-        #         # self.j = "("+self.j+")\(/\)"+web_latex(d)
-        #             self.j = web_latex(r"\frac{%s}{%s}" % (self.j, d))
-        #         else:
-        #             self.j = web_latex(d)
-        #         if g > 1:
-        #             if n1 > 1:
-        #                 self.j = web_latex(g) + self.j
-        #             else:
-        #                 self.j = web_latex(g)
         self.j = web_latex(j)
-
         self.fact_j = None
         # See issue 1258: some j factorizations work but take too long
         # (e.g. EllipticCurve/6.6.371293.1/1.1/a/1).  Note that we do
         # store the factorization of the denominator of j and display
         # that, which is the most interesting part.
 
-        # The equation is stored in the database as a latex string.
-        # Some of these have extraneous double quotes at beginning and
-        # end, shich we fix here.  We also strip out initial \( and \)
+        # When the equation is stored in the database as a latex string,
+        # it may have extraneous double quotes at beginning and
+        # end, which we fix here.  We also strip out initial \( and \)
         # (if present) which are added in the template.
-        self.equation = self.equation.replace('"','').replace('\\(','').replace('\\)','')
+        try:
+            self.equation = self.equation.replace('"','').replace(r'\\(','').replace(r'\\)','')
+        except AttributeError:
+            self.equation = latex_equation(self.ainvs)
 
         # Images of Galois representations
 
@@ -384,20 +365,26 @@ class ECNF(object):
 
         # CM and End(E)
         self.cm_bool = "no"
-        self.End = "\(\Z\)"
+        self.End = r"\(\Z\)"
         if self.cm:
-            self.rational_cm = K(self.cm).is_square()
+            # When we switch to storing rational cm by having |D| in
+            # the column, change the following lines:
+            if self.cm>0:
+                self.rational_cm = True
+                self.cm = -self.cm
+            else:
+                self.rational_cm = K(self.cm).is_square()
             self.cm_sqf = ZZ(self.cm).squarefree_part()
-            self.cm_bool = "yes (\(%s\))" % self.cm
+            self.cm_bool = r"yes (\(%s\))" % self.cm
             if self.cm % 4 == 0:
                 d4 = ZZ(self.cm) // 4
-                self.End = "\(\Z[\sqrt{%s}]\)" % (d4)
+                self.End = r"\(\Z[\sqrt{%s}]\)" % (d4)
             else:
-                self.End = "\(\Z[(1+\sqrt{%s})/2]\)" % self.cm
+                self.End = r"\(\Z[(1+\sqrt{%s})/2]\)" % self.cm
 
         # Galois images in CM case:
         if self.cm and self.galois_images != '?':
-            self.cm_ramp = [p for p in ZZ(self.cm).support() if not p in self.non_surjective_primes]
+            self.cm_ramp = [p for p in ZZ(self.cm).support() if p not in self.non_surjective_primes]
             self.cm_nramp = len(self.cm_ramp)
             if self.cm_nramp==1:
                 self.cm_ramp = self.cm_ramp[0]
@@ -418,9 +405,9 @@ class ECNF(object):
         # Q-curve / Base change
         try:
             qc = self.q_curve
-            if qc == True:
+            if qc is True:
                 self.qc = "yes"
-            elif qc == False:
+            elif qc is False:
                 self.qc = "no"
             else: # just in case
                 self.qc = "not determined"
@@ -431,68 +418,135 @@ class ECNF(object):
         self.ntors = web_latex(self.torsion_order)
         self.tr = len(self.torsion_structure)
         if self.tr == 0:
-            self.tor_struct_pretty = "Trivial"
+            self.tor_struct_pretty = "trivial"
         if self.tr == 1:
-            self.tor_struct_pretty = "\(\Z/%s\Z\)" % self.torsion_structure[0]
+            self.tor_struct_pretty = r"\(\Z/%s\Z\)" % self.torsion_structure[0]
         if self.tr == 2:
             self.tor_struct_pretty = r"\(\Z/%s\Z\times\Z/%s\Z\)" % tuple(self.torsion_structure)
 
-        torsion_gens = [parse_point(K,P) for P in self.torsion_gens]
-        self.torsion_gens = ",".join([web_point(P) for P in torsion_gens])
+        self.torsion_gens = [web_point(parse_point(K,P)) for P in self.torsion_gens]
 
-        # Rank or bounds
+        # BSD data
+        #
+        # We divide into 3 cases, based on rank_bounds [lb,ub],
+        # analytic_rank ar, (lb=ngens always).  The flag
+        # self.bsd_status is set to one of the following:
+        #
+        # "unconditional"
+        #     lb=ar=ub: we always have reg but in some cases over sextic fields we do not have omega, Lvalue, sha.
+        #     i.e. [lb,ar,ub] = [r,r,r]
+        #
+        # "conditional"
+        #     lb=ar<ub: we always have reg but in some cases over sextic fields we do not have omega, Lvalue, sha.
+        #     e.g. [lb,ar,ub] = [0,0,2], [1,1,3]
+        #
+        # "missing_gens"
+        #     lb<ar<=ub
+        #     e.g. [lb,ar,ub] = [0,1,1], [0,2,2], [1,2,2], [0,1,3]
+        #
+        # "incomplete"
+        #     ar not computed.  (We can always set lb=0, ub=Infinity.)
+
+        # Rank and bounds
         try:
             self.rk = web_latex(self.rank)
         except AttributeError:
-            self.rk = "?"
+            self.rank = None
+            self.rk = "not available"
+
         try:
-            self.rk_bnds = "%s...%s" % tuple(self.rank_bounds)
+            self.rk_lb, self.rk_ub = self.rank_bounds
         except AttributeError:
-            self.rank_bounds = [0, Infinity]
-            self.rk_bnds = "not available"
+            self.rk_lb = 0
+            self.rk_ub = Infinity
+            self.rank_bounds = "not available"
+
+        # Analytic rank
+        try:
+            self.ar = web_latex(self.analytic_rank)
+        except AttributeError:
+            self.analytic_rank = None
+            self.ar = "not available"
+
+        # for debugging:
+        assert self.rk == "not available" or (self.rk_lb == self.rank and
+                                              self.rank == self.rk_ub)
+        assert self.ar=="not available" or (self.rk_lb<=self.analytic_rank and self.analytic_rank<=self.rk_ub)
+
+        self.bsd_status = "incomplete"
+        if self.analytic_rank is not None:
+            if self.rk_lb==self.rk_ub:
+                self.bsd_status = "unconditional"
+            elif self.rk_lb==self.analytic_rank:
+                self.bsd_status = "conditional"
+            else:
+                self.bsd_status = "missing_gens"
+
+
+        # Regulator only in conditional/unconditional cases, or when we know the rank:
+        if self.bsd_status in ["conditional", "unconditional"]:
+            if self.ar == 0:
+                self.reg = web_latex(1)  # otherwise we only get 1.00000...
+            else:
+                try:
+                    self.reg = web_latex(self.reg)
+                except AttributeError:
+                    self.reg = "not available"
+        elif self.rk != "not available":
+            self.reg = web_latex(self.reg) if self.rank else web_latex(1)
+        else:
+            self.reg = "not available"
 
         # Generators
         try:
-            gens = [parse_point(K,P) for P in self.gens]
-            self.gens = ", ".join([web_point(P) for P in gens])
-            if self.rk == "?":
-                self.reg = "not available"
-            else:
-                if gens:
-                    try:
-                        self.reg = self.reg
-                    except AttributeError:
-                        self.reg = "not available"
-                    pass # self.reg already set
-                else:
-                    self.reg = 1  # otherwise we only get 1.00000...
-
+            self.gens = [web_point(parse_point(K, P)) for P in self.gens]
         except AttributeError:
-            self.gens = "not available"
-            self.reg = "not available"
-            try:
-                if self.rank == 0:
-                    self.reg = 1
-            except AttributeError:
-                pass
+            self.gens = []
 
+        # Global period
+        try:
+            self.omega = web_latex(self.omega)
+        except AttributeError:
+            self.omega = "not available"
+
+        # L-value
+        try:
+            r = int(self.analytic_rank)
+            # lhs = "L(E,1) = " if r==0 else "L'(E,1) = " if r==1 else "L^{{({})}}(E,1)/{}! = ".format(r,r)
+            self.Lvalue = web_latex(self.Lvalue)
+        except (TypeError, AttributeError):
+            self.Lvalue = "not available"
+            
+        # Tamagawa product
+        tamagawa_numbers = [ZZ(_ld['cp']) for _ld in self.local_data]
+        cp_fac = [cp.factor() for cp in tamagawa_numbers]
+        cp_fac = [latex(cp) if len(cp)<2 else '('+latex(cp)+')' for cp in cp_fac]
+        if len(cp_fac)>1:
+            self.tamagawa_factors = r'\cdot'.join(cp_fac)
+        else:
+            self.tamagawa_factors = None
+        self.tamagawa_product = web_latex(prod(tamagawa_numbers,1))
+
+        # Analytic Sha
+        try:
+            self.sha = web_latex(self.sha) + " (rounded)"
+        except AttributeError:
+            self.sha = "not available"
+            
+        
         # Local data
 
-        # Fix for Kodaira symbols, which in the database start and end
-        # with \( and \) and may have multiple backslashes.  Note that
-        # to put a single backslash into a python string you have to
-        # use '\\' which will display as '\\' but only counts as one
-        # character in the string.  which are added in the template.
-        def tidy_kod(kod):
-            while '\\\\' in kod:
-                kod = kod.replace('\\\\', '\\')
-            kod = kod.replace('\\(','').replace('\\)','')
-            return kod
+        # The Kodaira symbol is stored as an int in pari encoding. The
+        # conversion to latex must take into account the bug (in Sage
+        # 9.2) for I_m^* when m has more than one digit.
 
-        for P,ld in zip(badprimes,local_data):
-            ld['p'] = web_latex(P)
-            ld['norm'] = P.norm()
-            ld['kod'] = tidy_kod(ld['kod'])
+        def latex_kod(kod):
+            return latex(KodairaSymbol(kod)) if kod > -14 else 'I_{%s}^{*}' % (-kod - 4)
+
+        for P,NP,ld in zip(badprimes, badnorms, local_data):
+            ld['p'] = P
+            ld['norm'] = NP
+            ld['kod'] = latex_kod(ld['kod'])
 
         # URLs of self and related objects:
         self.urls = {}
@@ -508,11 +562,11 @@ class ECNF(object):
         # Isogeny information
 
         self.one_deg = ZZ(self.class_deg).is_prime()
-        isodegs = [str(d) for d in self.isogeny_degrees if d>1]
+        isodegs = [str(d) for d in self.isodeg if d>1]
         if len(isodegs)<3:
-            self.isogeny_degrees = " and ".join(isodegs)
+            self.isodeg = " and ".join(isodegs)
         else:
-            self.isogeny_degrees = " and ".join([", ".join(isodegs[:-1]),isodegs[-1]])
+            self.isodeg = " and ".join([", ".join(isodegs[:-1]),isodegs[-1]])
 
 
         sig = self.signature
@@ -543,28 +597,27 @@ class ECNF(object):
         self.friends = []
         self.friends += [('Isogeny class ' + self.short_class_label, self.urls['class'])]
         self.friends += [('Twists', url_for('ecnf.index', field=self.field_label, jinv=rename_j(j)))]
-        if totally_real and not 'Lfunction' in self.urls:
-            self.friends += [('Hilbert modular Form ' + self.hmf_label, self.urls['hmf'])]
+        if totally_real and 'Lfunction' not in self.urls:
+            self.friends += [('Hilbert modular form ' + self.hmf_label, self.urls['hmf'])]
 
         if imag_quadratic:
             if "CM" in self.label:
-                self.friends += [('Bianchi modular Form is not cuspidal', '')]
-            elif not 'Lfunction' in self.urls:
+                self.friends += [('Bianchi modular form is not cuspidal', '')]
+            elif 'Lfunction' not in self.urls:
                 if db.bmf_forms.label_exists(self.bmf_label):
-                    self.friends += [('Bianchi modular Form %s' % self.bmf_label, self.bmf_url)]
+                    self.friends += [('Bianchi modular form %s' % self.bmf_label, self.bmf_url)]
                 else:
-                    self.friends += [('(Bianchi modular Form %s)' % self.bmf_label, '')]
+                    self.friends += [('(Bianchi modular form %s)' % self.bmf_label, '')]
 
 
-        self.properties = [
-            ('Base field', self.field.field_pretty()),
-            ('Label', self.label)]
+        self.properties = [('Label', self.label)]
 
         # Plot
         if K.signature()[0]:
             self.plot = encode_plot(EC_nf_plot(K,self.ainvs, self.field.generator_name()))
             self.plot_link = '<a href="{0}"><img src="{0}" width="200" height="150"/></a>'.format(self.plot)
             self.properties += [(None, self.plot_link)]
+        self.properties += [('Base field', self.field.field_pretty())]
 
         self.properties += [
             ('Conductor', self.cond),
@@ -574,10 +627,11 @@ class ECNF(object):
             ('CM', self.cm_bool)]
 
         if self.base_change:
-            self.properties += [('base-change', 'yes: %s' % ','.join([str(lab) for lab in self.base_change]))]
+            self.base_change = [lab for lab in self.base_change if '?' not in lab]
+            self.properties += [('Base change', 'yes: %s' % ','.join([str(lab) for lab in self.base_change]))]
         else:
             self.base_change = []  # in case it was False instead of []
-            self.properties += [('base-change', 'no')]
+            self.properties += [('Base change', 'no')]
         self.properties += [('Q-curve', self.qc)]
 
         r = self.rk
@@ -589,12 +643,12 @@ class ECNF(object):
         ]
 
         for E0 in self.base_change:
-            self.friends += [('Base-change of %s /\(\Q\)' % E0, url_for("ec.by_ec_label", label=E0))]
+            self.friends += [(r'Base change of %s /\(\Q\)' % E0, url_for("ec.by_ec_label", label=E0))]
 
         self._code = None # will be set if needed by get_code()
 
         self.downloads = [('All stored data to text', url_for(".download_ECNF_all", nf=self.field_label, conductor_label=quote(self.conductor_label), class_label=self.iso_label, number=self.number))]
-        for lang in [["Magma","magma"], ["SageMath","sage"], ["GP", "gp"]]:
+        for lang in [["Magma","magma"], ["GP", "gp"], ["SageMath","sage"]]:
             self.downloads.append(('Code to {}'.format(lang[0]),
                                    url_for(".ecnf_code_download", nf=self.field_label, conductor_label=quote(self.conductor_label),
                                            class_label=self.iso_label, number=self.number, download_type=lang[1])))
@@ -617,26 +671,85 @@ class ECNF(object):
             self.friends += [('L-function not available', "")]
 
     def code(self):
-        if self._code == None:
-            self.make_code_snippets()
+        if self._code is None:
+            self._code =  make_code(self.label)
         return self._code
 
-    def make_code_snippets(self):
-        # read in code.yaml from current directory:
+sorted_code_names = ['field', 'curve', 'is_min', 'cond', 'cond_norm',
+                     'disc', 'disc_norm', 'jinv', 'cm', 'rank',
+                     'gens', 'heights', 'reg', 'tors', 'ntors', 'torgens', 'localdata']
 
-        _curdir = os.path.dirname(os.path.abspath(__file__))
-        self._code =  yaml.load(open(os.path.join(_curdir, "code.yaml")), Loader=yaml.FullLoader)
+code_names = {'field': 'Define the base number field',
+              'curve': 'Define the curve',
+              'is_min': 'Test whether it is a global minimal model',
+              'cond': 'Compute the conductor',
+              'cond_norm': 'Compute the norm of the conductor',
+              'disc': 'Compute the discriminant',
+              'disc_norm': 'Compute the norm of the discriminant',
+              'jinv': 'Compute the j-invariant',
+              'cm': 'Test for Complex Multiplication',
+              'rank': 'Compute the Mordell-Weil rank',
+              'ntors': 'Compute the order of the torsion subgroup',
+              'gens': 'Compute the generators (of infinite order)',
+              'heights': 'Compute the heights of the generators (of infinite order)',
+              'reg': 'Compute the regulator',
+              'tors': 'Compute the torsion subgroup',
+              'torgens': 'Compute the generators of the torsion subgroup',
+              'localdata': 'Compute the local reduction data at primes of bad reduction'
+}
 
-        # Fill in placeholders for this specific curve:
+Fullname = {'magma': 'Magma', 'sage': 'SageMath', 'gp': 'Pari/GP', 'pari': 'Pari/GP'}
+Comment = {'magma': '//', 'sage': '#', 'gp': '\\\\', 'pari': '\\\\'}
 
-        gen = self.field.generator_name().replace("\\","") # phi not \phi
-        for lang in ['sage', 'magma', 'pari']:
-            pol = str(self.field.poly())
-            if lang=='pari':
-                pol = pol.replace('x',gen)
-            elif lang=='magma':
-                pol = str(self.field.poly().list())
-            self._code['field'][lang] = (self._code['field'][lang] % pol).replace("<a>", "<%s>" % gen)
+def make_code(label, lang=None):
+    """Return a dict of code snippets for one curve in either one
+    language (if lang is 'pari' or 'gp', 'sage', or 'magma') or all
+    three (if lang is None).
+    """
+    if lang=='gp':
+        lang = 'pari'
+    all_langs = ['magma', 'pari', 'sage']
 
-        for lang in ['sage', 'magma', 'pari']:
-            self._code['curve'][lang] = self._code['curve'][lang] % self.ainvs
+    # Get the base field label and a-invariants:
+    
+    E = db.ec_nfcurves.lookup(label, projection = ['field_label', 'ainvs'])
+   
+    # Look up the defining polynomial of the base field:
+    
+    from lmfdb.utils import coeff_to_poly
+    poly = coeff_to_poly(db.nf_fields.lookup(E['field_label'], projection = 'coeffs'))
+
+    # read in code.yaml from current directory:
+
+    import os
+    import yaml
+    _curdir = os.path.dirname(os.path.abspath(__file__))
+    Ecode =  yaml.load(open(os.path.join(_curdir, "code.yaml")), Loader=yaml.FullLoader)
+
+    # Fill in placeholders for this specific curve and language:
+    if lang:
+        for k in sorted_code_names:
+            Ecode[k] = Ecode[k][lang] if lang in Ecode[k] else None
+
+    # Fill in field polynomial coefficients:
+    if lang:
+        Ecode['field'] = Ecode['field'] % str(poly.list())
+    else:
+        for l in all_langs:
+            Ecode['field'][l] = Ecode['field'][l] % str(poly.list())
+
+    # Fill in curve coefficients:
+    ainvs = ["".join(["[",ai,"]"]) for ai in E['ainvs'].split(";")]
+    ainvs_string = {
+        'magma': "[" + ",".join(["K!{}".format(ai) for ai in ainvs]) + "]",
+        'sage':  "[" + ",".join(["K({})".format(ai) for ai in ainvs]) + "]",
+        'pari':  "[" + ",".join(["Pol(Vecrev({}))".format(ai) for ai in ainvs]) + "], K",
+        }
+    if lang:
+        Ecode['curve'] = Ecode['curve'] % ainvs_string[lang]
+    else:
+        for l in all_langs:
+            Ecode['curve'][l] = Ecode['curve'][l] % ainvs_string[l]
+
+    return Ecode
+

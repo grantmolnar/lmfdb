@@ -1,5 +1,9 @@
+
 from lmfdb.tests import LmfdbTest
-import os, itertools, collections
+import os
+import itertools
+import collections
+
 
 class TemplateNamespaceCollisionTest(LmfdbTest):
 
@@ -10,7 +14,7 @@ class TemplateNamespaceCollisionTest(LmfdbTest):
         dups = [x for x in counts if counts[x] > 1]
         collisions = [r for r in templates if r[0] in dups]
         if collisions:
-            print ""
+            print("")
         for x in dups:
-            print "Template file %s appears in: %s"%(x,[r[1] for r in collisions if r[0] == x])
+            print("Template file %s appears in: %s"%(x,[r[1] for r in collisions if r[0] == x]))
         assert not collisions, "Template namespace collisions: %s"%collisions

@@ -3,8 +3,8 @@ from lmfdb import db
 from lmfdb.logger import make_logger
 from lmfdb.number_fields.web_number_field import nf_display_knowl, field_pretty
 from lmfdb.elliptic_curves.web_ec import split_lmfdb_label
-from lmfdb.nfutils.psort import primes_iter, ideal_from_label, ideal_label
-from lmfdb.utils import web_latex, names_and_urls
+from lmfdb.nfutils.psort import primes_iter, ideal_from_label, ideal_label, prime_key
+from lmfdb.utils import web_latex, names_and_urls, prop_int_pretty
 from lmfdb.lfunctions.LfunctionDatabase import (get_lfunction_by_url,
         get_instances_by_Lhash_and_trace_hash)
 from flask import url_for
@@ -21,6 +21,11 @@ logger = make_logger("bmf")
 # Schembri.  At some point we will want to list these abelian surfaces
 # as friends when there is no curve.
 
+# TO (after adding 31 more for 2.0.43.1): make this list into a table,
+# OR add a column to the bmf_forms table to indicate whether or not a
+# curve exists (which could be because we have not foud one, but is
+# normally because there really is not curve).
+
 bmfs_with_no_curve = ['2.0.4.1-34225.7-b',
                       '2.0.4.1-34225.7-a',
                       '2.0.4.1-34225.3-b',
@@ -36,13 +41,55 @@ bmfs_with_no_curve = ['2.0.4.1-34225.7-b',
                       '2.0.3.1-123201.1-b',
                       '2.0.3.1-123201.1-c',
                       '2.0.3.1-123201.3-b',
-                      '2.0.3.1-123201.3-c']
+                      '2.0.3.1-123201.3-c',
+                      '2.0.19.1-1849.1-a',
+                      '2.0.19.1-1849.3-a',
+                      '2.0.43.1-121.1-a',
+                      '2.0.43.1-121.3-a',
+                      '2.0.43.1-256.1-c',
+                      '2.0.43.1-256.1-d',
+                      '2.0.43.1-256.1-e',
+                      '2.0.43.1-256.1-f',
+                      '2.0.43.1-529.1-a',
+                      '2.0.43.1-529.3-a',
+                      '2.0.43.1-961.1-a',
+                      '2.0.43.1-961.3-a',
+                      '2.0.43.1-1849.1-b',
+                      '2.0.43.1-1936.1-a',
+                      '2.0.43.1-1936.3-a',
+                      '2.0.43.1-2209.1-a',
+                      '2.0.43.1-2209.3-a',
+                      '2.0.43.1-3481.1-a',
+                      '2.0.43.1-3481.3-a',
+                      '2.0.43.1-4096.1-d',
+                      '2.0.43.1-4096.1-e',
+                      '2.0.43.1-4096.1-f',
+                      '2.0.43.1-4096.1-g',
+                      '2.0.43.1-4489.1-a',
+                      '2.0.43.1-4489.3-a',
+                      '2.0.43.1-6241.1-a',
+                      '2.0.43.1-6241.3-a',
+                      '2.0.43.1-6889.1-a',
+                      '2.0.43.1-6889.3-a',
+                      '2.0.43.1-8464.1-a',
+                      '2.0.43.1-8464.3-a',
+                      '2.0.43.1-9801.1-a',
+                      '2.0.43.1-9801.3-a',
+                      '2.0.43.1-10609.1-a',
+                      '2.0.43.1-10609.3-a',
+                      '2.0.43.1-11449.1-a',
+                      '2.0.43.1-11449.3-a']
+
+def cremona_label_to_lmfdb_label(lab):
+    if "." in lab:
+        return lab
+    return db.ec_curvedata.lucky({"Clabel":lab}, projection='lmfdb_label')
 
 class WebBMF(object):
     """
-    Class for an Bianchi Newform
+    Class for a Bianchi Newform
     """
-    def __init__(self, dbdata):
+    def __init__(self, dbdata, max_eigs=50):
         """Arguments:
 
             - dbdata: the data from the database
@@ -54,23 +101,23 @@ class WebBMF(object):
         logger.debug("Constructing an instance of WebBMF class from database")
         self.__dict__.update(dbdata)
         # All other fields are handled here
-        self.make_form()
+        self.make_form(max_eigs)
 
     @staticmethod
-    def by_label(label):
+    def by_label(label, max_eigs=50):
         """
-        Searches for a specific Hilbert newform in the forms
+        Searches for a specific Bianchi newform in the forms
         collection by its label.
         """
         data = db.bmf_forms.lookup(label)
 
         if data:
-            return WebBMF(data)
+            return WebBMF(data, max_eigs)
         raise ValueError("Bianchi newform %s not found" % label)
         # caller must catch this and raise an error
 
 
-    def make_form(self):
+    def make_form(self,nap0=50):
         # To start with the data fields of self are just those from
         # the database.  We need to reformat these and compute some
         # further (easy) data about it.
@@ -88,6 +135,9 @@ class WebBMF(object):
         self.newspace_url = url_for(".render_bmf_space_webpage", field_label=self.field_label, level_label=self.level_label)
         K = self.field.K()
 
+        # 'hecke_poly_obj' is the non-LaTeX version of hecke_poly
+        self.hecke_poly_obj = self.hecke_poly
+
         if self.dimension>1:
             Qx = PolynomialRing(QQ,'x')
             self.hecke_poly = Qx(str(self.hecke_poly))
@@ -100,28 +150,33 @@ class WebBMF(object):
                     return F(str(ap))
             self.hecke_eigs = [conv(str(ap)) for ap in self.hecke_eigs]
 
+        self.level = ideal_from_label(K,self.level_label)
+        self.level_ideal2 = web_latex(self.level)
+        badp = self.level.prime_factors()
+        badp.sort(key=prime_key)
+
         self.nap = len(self.hecke_eigs)
-        self.nap0 = min(50, self.nap)
+        self.nap0 = min(nap0, self.nap)
+        self.neigs = self.nap0 + len(badp)
         self.hecke_table = [[web_latex(p.norm()),
                              ideal_label(p),
-                             web_latex(p.gens_reduced()[0]),
-                             web_latex(ap)] for p,ap in zip(primes_iter(K), self.hecke_eigs[:self.nap0])]
-        level = ideal_from_label(K,self.level_label)
-        self.level_ideal2 = web_latex(level)
-        badp = level.prime_factors()
+                             web_latex(p.gens_reduced()),
+                             web_latex(ap)] for p,ap in zip(primes_iter(K), self.hecke_eigs[:self.neigs]) if p not in badp]
         self.have_AL = self.AL_eigs[0]!='?'
         if self.have_AL:
             self.AL_table = [[web_latex(p.norm()),
                              ideal_label(p),
-                              web_latex(p.gens_reduced()[0]),
+                              web_latex(p.gens_reduced()),
                               web_latex(ap)] for p,ap in zip(badp, self.AL_eigs)]
+            # The following helps to create Sage download data
+            self.AL_table_data = [[p.gens_reduced(),ap] for p,ap in zip(badp, self.AL_eigs)]
         self.sign = 'not determined'
-        
+
         try:
             if self.sfe == 1:
-                self.sign = "+1"
+                self.sign = "$+1$"
             elif self.sfe == -1:
-                self.sign = "-1"
+                self.sign = "$-1$"
         except AttributeError:
             self.sfe = '?'
 
@@ -130,14 +185,14 @@ class WebBMF(object):
             self.anrank = "not determined"
         else:
             self.Lratio = QQ(self.Lratio)
-            self.anrank = "\(0\)" if self.Lratio!=0 else "odd" if self.sfe==-1 else "\(\ge2\), even"
+            self.anrank = r"\(0\)" if self.Lratio!=0 else "odd" if self.sfe==-1 else r"\(\ge2\), even"
 
-        self.properties2 = [('Base field', pretty_field),
-                            ('Weight', str(self.weight)),
-                            ('Level norm', str(self.level_norm)),
+        self.properties = [('Label', self.label),
+                            ('Base field', pretty_field),
+                            ('Weight', prop_int_pretty(self.weight)),
+                            ('Level norm', prop_int_pretty(self.level_norm)),
                             ('Level', self.level_ideal2),
-                            ('Label', self.label),
-                            ('Dimension', str(self.dimension))
+                            ('Dimension', prop_int_pretty(self.dimension))
         ]
 
         try:
@@ -146,11 +201,12 @@ class WebBMF(object):
             elif self.CM == 0:
                 self.CM = 'no'
             else:
-                if self.CM%4 in [2,3]:
-                    self.CM = 4*self.CM
+                if int(self.CM)%4 in [2,3]:
+                    self.CM = 4*int(self.CM)
+                self.CM = "$%s$" % self.CM
         except AttributeError:
             self.CM = 'not determined'
-        self.properties2.append(('CM', str(self.CM)))
+        self.properties.append(('CM', str(self.CM)))
 
         self.bc_extra = ''
         self.bcd = 0
@@ -165,18 +221,21 @@ class WebBMF(object):
         elif self.bc >1:
             self.bcd = self.bc
             self.bc = 'yes'
-            self.bc_extra = ', of a form over \(\mathbb{Q}\) with coefficients in \(\mathbb{Q}(\sqrt{'+str(self.bcd)+'})\)'
+            self.bc_extra = r', of a form over \(\mathbb{Q}\) with coefficients in \(\mathbb{Q}(\sqrt{' + str(self.bcd) + r'})\)'
         elif self.bc == -1:
             self.bc = 'no'
-            self.bc_extra = ', but is a twist of the base-change of a form over \(\mathbb{Q}\)'
+            self.bc_extra = r', but is a twist of the base change of a form over \(\mathbb{Q}\)'
         elif self.bc < -1:
             self.bcd = -self.bc
             self.bc = 'no'
-            self.bc_extra = ', but is a twist of the base-change of a form over \(\mathbb{Q}\) with coefficients in \(\mathbb{Q}(\sqrt{'+str(self.bcd)+'})\)'
-        self.properties2.append(('Base-change', str(self.bc)))
+            self.bc_extra = r', but is a twist of the base change of a form over \(\mathbb{Q}\) with coefficients in \(\mathbb{Q}(\sqrt{'+str(self.bcd)+r'})\)'
+        self.properties.append(('Base change', str(self.bc)))
 
         curve_bc = db.ec_nfcurves.lucky({'class_label':self.label}, projection="base_change")
         if curve_bc is not None:
+            curve_bc = [lab for lab in curve_bc if '?' not in lab]
+            if curve_bc and "." not in curve_bc[0]:
+                curve_bc = [cremona_label_to_lmfdb_label(lab) for lab in curve_bc]
             self.ec_status = 'exists'
             self.ec_url = url_for("ecnf.show_ecnf_isoclass", nf=self.field_label, conductor_label=self.level_label, class_label=self.label_suffix)
             curve_bc_parts = [split_lmfdb_label(lab) for lab in curve_bc]
@@ -191,8 +250,8 @@ class WebBMF(object):
             else:
                 self.ec_status = 'missing'
 
-        self.properties2.append(('Sign', self.sign))
-        self.properties2.append(('Analytic rank', self.anrank))
+        self.properties.append(('Sign', self.sign))
+        self.properties.append(('Analytic rank', self.anrank))
 
         self.friends = []
         self.friends += [('Newspace {}'.format(self.newspace_label),self.newspace_url)]

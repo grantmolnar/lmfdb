@@ -29,8 +29,8 @@
 
 
 
+    <script type="text/javascript">var url_prefix = "{{ knowl_url_prefix() }}";</script>
 
-    <script type="text/javascript" src="{{ url_for('static', filename='jquery.watermark.min.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='lmfdb.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='showdown.min.js') }}"></script>
 
@@ -38,6 +38,7 @@
     <script type="text/javascript" src="{{ url_for('static', filename='jquery.dataTables.plugins.js') }}"></script>
 
     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='raw_typeset.js') }}"></script>
 
 
     <link rel="stylesheet"
@@ -73,6 +74,7 @@ katexOpts = {
   "\\GL": '{\\textrm{GL}}',
   "\\PSL": '{\\textrm{PSL}}',
   "\\PGL": '{\\textrm{PGL}}',
+  "\\AGL": '{\\textrm{AGL}}',
   "\\Sp": '{\\textrm{Sp}}',
   "\\GSp": '{\\textrm{GSp}}',
   "\\PSp": '{\\textrm{PSp}}',
@@ -105,6 +107,7 @@ katexOpts = {
     {%- from "knowl-defs.html" import KNOWL_LINK with context -%}
     {%- from "knowl-defs.html" import KNOWL_INC with context -%}
     {%- from "knowl-defs.html" import TEXT_DATA with context -%}
+    {%- from "knowl-defs.html" import LINK_EXT with context -%}
 
     <script type="text/javascript">
 var _gaq = _gaq || [];

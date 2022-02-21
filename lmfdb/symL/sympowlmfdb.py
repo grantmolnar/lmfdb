@@ -50,9 +50,9 @@ ACKNOWLEDGEMENT (from sympow readme):
 import os
 
 from sage.structure.sage_object import SageObject
-from sage.misc.all import pager, verbose
-import sage.rings.all
-
+from sage.all import pager, Integer, PolynomialRing, RationalField
+# The next line triggers a Deprecation Warning but the import from sage.misc.verbose only works in Sage >=9.2
+from sage.misc.all import verbose
 
 class SympowLMFDB(SageObject):
     r"""
@@ -139,14 +139,14 @@ class SympowLMFDB(SageObject):
         v = self('-sp %sp%s %s' % (n, prec, self._curve_str(E)))
         i = v.rfind(': ')
         if i == -1:
-            print self._fix_err(v)
+            print(self._fix_err(v))
             raise RuntimeError("failed to compute symmetric power")
         x = v[i + 2:]
         return x
 
     def local_data(self, E, n, prec=64):
         import re
-        R = sage.rings.all.PolynomialRing(sage.rings.all.RationalField(), 'x')
+        R = PolynomialRing(RationalField(), 'x')
 
         if prec > 64:
             raise ValueError("prec (=%s) must be at most 64" % prec)
@@ -162,14 +162,14 @@ class SympowLMFDB(SageObject):
 
         bad_primes_l = [i for i in vv if re.match(r'sp %d: Euler' % n, i)]
 
-        bad_primes = [(sage.rings.all.Integer(i.split()[5]),
+        bad_primes = [(Integer(i.split()[5]),
                        R(i.split()[7]).coefficients(sparse=False)) for i in bad_primes_l]
 
         cond_rootn_string = [i for i in vv if re.search('conductor', i)].pop()
         cond_rootn_string = cond_rootn_string.replace(',', ' ')
 
-        conductor, root = sage.rings.all.Integer(
-            cond_rootn_string.split()[5]), sage.rings.all.Integer(cond_rootn_string.split()[-1])
+        conductor, root = Integer(
+            cond_rootn_string.split()[5]), Integer(cond_rootn_string.split()[-1])
 
         return bad_primes, conductor, root
         # j = v.rfind(': ')
@@ -208,7 +208,7 @@ class SympowLMFDB(SageObject):
 
         EXAMPLES::
 
-            sage: print sympow.Lderivs(EllipticCurve('11a'), 1, 16, 2)  # not tested
+            sage: print(sympow.Lderivs(EllipticCurve('11a'), 1, 16, 2))  # not tested
             ...
              1n0: 2.538418608559107E-01
              1w0: 2.538418608559108E-01
@@ -259,9 +259,9 @@ class SympowLMFDB(SageObject):
         s = 'Modular Degree is '
         i = v.find(s)
         if i == -1:
-            print self._fix_err(v)
+            print(self._fix_err(v))
             raise RuntimeError("failed to compute modular degree")
-        return sage.rings.all.Integer(v[i + len(s):])
+        return Integer(v[i + len(s):])
 
     def analytic_rank(self, E):
         r"""
@@ -317,10 +317,10 @@ class SympowLMFDB(SageObject):
         s = 'Analytic Rank is '
         i = v.rfind(s)
         if i == -1:
-            print self._fix_err(v)
+            print(self._fix_err(v))
             raise RuntimeError("failed to compute analytic rank")
         j = v.rfind(':')
-        r = sage.rings.all.Integer(v[i + len(s):j])
+        r = Integer(v[i + len(s):j])
         i = v.rfind(' ')
         L = v[i + 1:]
         return r, L
@@ -330,7 +330,7 @@ class SympowLMFDB(SageObject):
         Pre-compute data files needed for computation of n-th symmetric
         powers.
         """
-        print self('-new_data %s' % n)
+        print(self('-new_data %s' % n))
 
     def help(self):
         h = """

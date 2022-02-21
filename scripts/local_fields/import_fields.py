@@ -73,7 +73,7 @@ count=0
 
 # loop over files, and in each, loop over lines
 for path in sys.argv[1:]:
-    print path
+    print(path)
     fn = open(path)
     tot = 0
     outrecs = []
@@ -83,8 +83,8 @@ for path in sys.argv[1:]:
         if re.match(r'\S',line):
             #print line
             l = json.loads(line)
-            chck = lf.lookup(str(l[11])) # by label
-            if chck is None: # we don't have it yet
+            check = lf.lookup(str(l[11])) # by label
+            if check is None: # we don't have it yet
                 ent = prep_ent(l)
                 outrecs.append(ent)
                 #print str(ent['label'])
@@ -97,6 +97,6 @@ for path in sys.argv[1:]:
 #pp(outrecs[0])
 #lf.insert_many(outrecs)
 
-print "Added %d records"% len(outrecs)
+print("Added %d records" % len(outrecs))
 
 

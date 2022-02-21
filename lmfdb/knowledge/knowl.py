@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
-# the basic knowlege object, with database awareness, …
+# the basic knowledge object, with database awareness, …
+
 from datetime import datetime, timedelta
 from collections import defaultdict
 import time
 import subprocess
+import os
+import sys
 
-from lmfdb.backend.database import db, PostgresBase, DelayCommit
+from lmfdb.backend.base import PostgresBase
+from lmfdb.backend import DelayCommit
+from lmfdb import db
 from lmfdb.app import is_beta
 from lmfdb.utils import code_snippet_knowl
+from lmfdb.utils.config import Configuration
 from lmfdb.users.pwdmanager import userdb
 from lmfdb.utils import datetime_to_timestamp_in_ms
 from psycopg2.sql import SQL, Identifier, Placeholder
@@ -16,27 +22,29 @@ import re
 text_keywords = re.compile(r"\b[a-zA-Z0-9-]{3,}\b")
 top_knowl_re = re.compile(r"(.*)\.top$")
 comment_knowl_re = re.compile(r"(.*)\.(\d+)\.comment$")
+coldesc_knowl_re = re.compile(r"columns.([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)")
 bottom_knowl_re = re.compile(r"(.*)\.bottom$")
 url_from_knowl = [
-    (re.compile(r'g2c\.(\d+\.[a-z]+\.\d+\.\d+)'), 'Genus2Curve/Q/{0}', 'Genus 2 Curve {0}'),
-    (re.compile(r'g2c\.(\d+\.[a-z]+)'), 'Genus2Curve/Q/{0}', 'Genus 2 Isogeny Class {0}'),
-    (re.compile(r'gg\.(\d+)t(\d+)'), 'GaloisGroup/{0}t{1}', 'Galois Group {0}T{1}'),
+    (re.compile(r'g2c\.(\d+\.[a-z]+\.\d+\.\d+)'), 'Genus2Curve/Q/{0}', 'Genus 2 curve {0}'),
+    (re.compile(r'g2c\.(\d+\.[a-z]+)'), 'Genus2Curve/Q/{0}', 'Genus 2 isogeny class {0}'),
+    (re.compile(r'gg\.(\d+)t(\d+)'), 'GaloisGroup/{0}t{1}', 'Galois group {0}T{1}'),
     (re.compile(r'lattice\.(.*)'), 'Lattice/{0}', 'Lattice {0}'),
     (re.compile(r'cmf\.(.*)'), 'ModularForm/GL2/Q/holomorphic/{0}', 'Newform {0}'),
-    (re.compile(r'nf\.(.*)'), 'NumberField/{0}', 'Number Field {0}'),
-    (re.compile(r'ec\.q\.(.*)'), 'EllipticCurve/Q/{0}', 'Elliptic Curve {0}'),
-    (re.compile(r'ec\.(\d+\.\d+\.\d+\.\d+)-(\d+\.\d+)-([a-z]+)(\d+)'), 'EllipticCurve/{0}/{1}/{2}/{3}', 'Elliptic Curve {0}-{1}-{2}{3}'),
-    (re.compile(r'av\.fq\.(.*)'), 'Variety/Abelian/Fq/{0}', 'Abelian Variety Isogeny Class {0}'),
-    (re.compile(r'st_group\.(.*)'), 'SatoTateGroup/{0}', 'Sato-Tate Group {0}'),
+    (re.compile(r'nf\.(.*)'), 'NumberField/{0}', 'Number field {0}'),
+    (re.compile(r'ec\.q\.(.*)'), 'EllipticCurve/Q/{0}', 'Elliptic curve {0}'),
+    (re.compile(r'ec\.(\d+\.\d+\.\d+\.\d+)-(\d+\.\d+)-([a-z]+)(\d+)'), 'EllipticCurve/{0}/{1}/{2}/{3}', 'Elliptic curve {0}-{1}-{2}{3}'),
+    (re.compile(r'av\.fq\.(.*)'), 'Variety/Abelian/Fq/{0}', 'Abelian variety isogeny class {0}'),
+    (re.compile(r'st_group\.(.*)'), 'SatoTateGroup/{0}', 'Sato-Tate group {0}'),
     (re.compile(r'belyi\.(.*)'), 'Belyi/{0}', 'Belyi Map {0}'),
-    (re.compile(r'hecke_algebra\.(.*)'), 'ModularForm/GL2/Q/HeckeAlgebra/{0}', 'Hecke Algebra {0}'),
-    (re.compile(r'hecke_algebra_l_adic\.(.*)'), 'ModularForm/GL2/Q/HeckeAlgebra/{0}/2', 'l-adic Hecke Algebra {0}'),
-    (re.compile(r'gal\.modl\.(.*)'), 'Representation/Galois/ModL/{0}', 'Mod-l Galois Representation {0}'),
-    (re.compile(r'modlmf\.(.*)'), 'ModularForm/GL2/ModL/{0}', 'Mod-l Modular Form {0}'),
+    (re.compile(r'hecke_algebra\.(.*)'), 'ModularForm/GL2/Q/HeckeAlgebra/{0}', 'Hecke algebra {0}'),
+    (re.compile(r'hecke_algebra_l_adic\.(.*)'), 'ModularForm/GL2/Q/HeckeAlgebra/{0}/2', 'l-adic Hecke algebra {0}'),
+    (re.compile(r'gal\.modl\.(.*)'), 'Representation/Galois/ModL/{0}', 'Mod-l Galois representation {0}'),
+    (re.compile(r'modlmf\.(.*)'), 'ModularForm/GL2/ModL/{0}', 'Mod-l modular form {0}'),
+    (re.compile(r'group\.abstract\.(.*)'), 'Groups/Abstract/{0}', 'Abstract group {0}'),
 ]
 grep_extractor = re.compile(r'(.+?)([:|-])(\d+)([-|:])(.*)')
 # We need to convert knowl
-link_finder_re = re.compile(r"""KNOWL(_INC)?\(\s*['"]([^'"]+)['"]""")
+link_finder_re = re.compile(r"""(KNOWL(_INC)?\(|kid\s*=|knowl\s*=|th_wrap\s*\()\s*['"]([^'"]+)['"]|""")
 define_fixer = re.compile(r"""\{\{\s*KNOWL(_INC)?\s*\(\s*['"]([^'"]+)['"]\s*,\s*(title\s*=\s*)?([']([^']+)[']|["]([^"]+)["]\s*)\)\s*\}\}""")
 defines_finder_re = re.compile(r"""\*\*([^\*]+)\*\*""")
 # this one is different from the hashtag regex in main.py,
@@ -62,8 +70,8 @@ def make_keywords(content, kid, title):
     kws += hashtag_keywords.findall(content)
     kws = [k.lower() for k in kws]
     kws = set(kws)
-    kws = filter(lambda _: _ not in common_words, kws)
-    return kws
+    return [w for w in kws if w not in common_words]
+
 
 def extract_cat(kid):
     if not hasattr(kid, 'split'):
@@ -76,6 +84,9 @@ def extract_typ(kid):
         typ = -2
         source = m.group(1)
         return typ, source, None
+    m = coldesc_knowl_re.match(kid)
+    if m:
+        return 2, m.group(1), m.group(2)
     m = top_knowl_re.match(kid)
     if m:
         prelabel = m.group(1)
@@ -98,7 +109,7 @@ def extract_typ(kid):
     return typ, url, name
 
 def extract_links(content):
-    return sorted(set(x[1] for x in link_finder_re.findall(content)))
+    return sorted(set(x[2] for x in link_finder_re.findall(content) if x[2]))
 
 def normalize_define(term):
     m = define_fixer.search(term)
@@ -169,18 +180,19 @@ class KnowlBackend(PostgresBase):
         if cur.rowcount > 0:
             return {k:v for k,v in zip(fields, cur.fetchone())}
 
-    def get_all_knowls(self, fields=None):
+    def get_all_knowls(self, fields=None, types=[2, 1,0,-1,-2]):
         if fields is None:
             fields = ['id'] + self._default_fields
-        selecter = SQL("SELECT DISTINCT ON (id) {0} FROM kwl_knowls WHERE status >= %s ORDER BY id, timestamp DESC").format(SQL(", ").join(map(Identifier, fields)))
-        cur = self._execute(selecter, [0])
+        selecter = SQL("SELECT DISTINCT ON (id) {0} FROM kwl_knowls WHERE status >= %s AND type = ANY(%s) ORDER BY id, timestamp DESC").format(SQL(", ").join(map(Identifier, fields)))
+        cur = self._execute(selecter, [0, types])
         return [{k:v for k,v in zip(fields, res)} for res in cur]
 
     def get_all_defines(self):
         selecter = SQL("SELECT DISTINCT ON (id) id, defines FROM kwl_knowls WHERE status >= 0 AND type = 0 AND cardinality(defines) > 0 ORDER BY id, timestamp DESC")
         cur = self._execute(selecter)
         # This should be fixed in the data
-        return [{k:(v if k == 'id' else map(normalize_define, v)) for k,v in zip(['id', 'defines'], res)} for res in cur]
+        return [{k: (v if k == 'id' else [normalize_define(t) for t in v])
+                 for k, v in zip(['id', 'defines'], res)} for res in cur]
 
     #FIXME shouldn't I be allowed to search on id? or something?
     def search(self, category="", filters=[], types=[], keywords="", author=None, sort=[], projection=['id', 'title'], regex=False):
@@ -210,7 +222,7 @@ class KnowlBackend(PostgresBase):
                 restrictions.append(SQL("content ~ %s OR title ~ %s OR id ~ %s"))
                 values.extend([keywords, keywords, keywords])
             else:
-                keywords = filter(lambda _: len(_) >= 3, keywords.split(" "))
+                keywords = [w for w in keywords.split(" ") if len(w) >= 3]
                 if keywords:
                     restrictions.append(SQL("_keywords @> %s"))
                     values.append(keywords)
@@ -228,7 +240,7 @@ class KnowlBackend(PostgresBase):
             restrictions = SQL("")
         selecter = SQL("SELECT DISTINCT ON (id) {0} FROM kwl_knowls{1} ORDER BY id, timestamp DESC").format(sqlfields, restrictions)
         secondary_restrictions = []
-        if len(filters) > 0:
+        if filters:
             secondary_restrictions.append(SQL("knowls.{0} = ANY(%s)").format(Identifier("status")))
             values.append([knowl_status_code[q] for q in filters if q in knowl_status_code])
         else:
@@ -273,7 +285,10 @@ class KnowlBackend(PostgresBase):
         else:
             typ, source, name = extract_typ(knowl.id)
         links = extract_links(knowl.content)
-        defines = extract_defines(knowl.content)
+        if typ == 2: # column description
+            defines = [knowl.id.split(".")[-1]]
+        else:
+            defines = extract_defines(knowl.content)
         # id, authors, cat, content, last_author, timestamp, title, status, type, links, defines, source, source_name
         values = (knowl.id, authors, cat, knowl.content, who, knowl.timestamp, knowl.title, knowl.status, typ, links, defines, source, name, search_keywords)
         with DelayCommit(self):
@@ -311,6 +326,31 @@ class KnowlBackend(PostgresBase):
         cur = self._execute(selecter, [-2, ID])
         return list(cur)
 
+    def get_column_descriptions(self, table):
+        fields = ['id'] + self._default_fields
+        selecter = SQL("SELECT {0} FROM (SELECT DISTINCT ON (id) {0} FROM kwl_knowls WHERE id LIKE %s AND type = %s AND status >= %s ORDER BY id, timestamp) knowls ORDER BY id").format(SQL(", ").join(map(Identifier, fields)))
+        cur = self._execute(selecter, [f"columns.{table}.%", 2, 0])
+        return {rec[0].split(".")[-1]: Knowl(rec[0], data={k:v for k,v in zip(fields, rec)}) for rec in cur}
+
+    def set_column_description(self, table, col, description):
+        from lmfdb import db
+        uid = db.login()
+        kid = f"columns.{table}.{col}"
+        data = {
+            'content': description,
+            'defines': col,
+        }
+        kwl = Knowl(kid, data=data)
+        old = self.get_knowl(kid, beta=True)
+        if old is None:
+            old = {'authors': []}
+        self.save(kwl, uid, most_recent=old)
+
+    def drop_column(self, table, col):
+        kid = f"columns.{table}.{col}"
+        kwl = Knowl(kid, data=self.get_knowl(kid, beta=True))
+        self.delete(kwl)
+
     def delete(self, knowl):
         """deletes this knowl from the db. This is effected by setting the status to -2 on all copies of the knowl"""
         updator = SQL("UPDATE kwl_knowls SET status=%s WHERE id=%s")
@@ -328,20 +368,8 @@ class KnowlBackend(PostgresBase):
         updator = SQL("UPDATE kwl_knowls SET (status, reviewer, reviewer_timestamp) = (%s, %s, %s) WHERE id = %s AND timestamp = %s")
         self._execute(updator, [0 if set_beta else 1, who, datetime.utcnow(), knowl.id, knowl.timestamp])
 
-    def needs_review(self, days, cap=50):
-        now = datetime.utcnow()
-        tdelta = timedelta(days=days)
-        time = now - tdelta
-        fields = ['id'] + self._default_fields
-        selecter = SQL("SELECT {0} FROM (SELECT DISTINCT ON (id) {0} FROM kwl_knowls WHERE timestamp >= %s AND status >= %s AND type != %s ORDER BY id, timestamp DESC) knowls WHERE status = 0 ORDER BY timestamp DESC LIMIT %s").format(SQL(", ").join(map(Identifier, fields)))
-        cur = self._execute(selecter, [time, 0, -2, cap])
-        knowls = [Knowl(rec[0], data={k:v for k,v in zip(fields, rec)}) for rec in cur]
-
+    def _set_referrers(self, knowls):
         kids = [k.id for k in knowls]
-        selecter = SQL("SELECT DISTINCT ON (id) id, content FROM kwl_knowls WHERE status = 1 AND id = ANY(%s) ORDER BY id, timestamp DESC")
-        cur = self._execute(selecter, [kids])
-        reviewed = {rec[0]:rec[1] for rec in cur}
-
         selecter = SQL("SELECT id, links FROM (SELECT DISTINCT ON (id) id, links FROM kwl_knowls WHERE status >= %s AND type != %s ORDER BY id, timestamp DESC) knowls WHERE links && %s")
         cur = self._execute(selecter, [0, -2, kids])
         referrers = {k.id: [] for k in knowls}
@@ -349,17 +377,49 @@ class KnowlBackend(PostgresBase):
             for kid in links:
                 if kid in referrers:
                     referrers[kid].append(refid)
-
         for k in knowls:
-            k.reviewed_content = reviewed.get(k.id)
             k.referrers = referrers[k.id]
             k.code_referrers = [
                     code_snippet_knowl(D, full=False)
                     for D in self.code_references(k)]
+
+
+    def needs_review(self, days):
+        now = datetime.utcnow()
+        tdelta = timedelta(days=days)
+        time = now - tdelta
+        fields = ['id'] + self._default_fields
+        selecter = SQL("SELECT {0} FROM (SELECT DISTINCT ON (id) {0} FROM kwl_knowls WHERE timestamp >= %s AND status >= %s AND (type = 1 OR type = -1) ORDER BY id, timestamp DESC) knowls WHERE status = 0 ORDER BY timestamp DESC").format(SQL(", ").join(map(Identifier, fields)))
+        cur = self._execute(selecter, [time, 0])
+        knowls = [Knowl(rec[0], data={k:v for k,v in zip(fields, rec)}) for rec in cur]
+
+        kids = [k.id for k in knowls]
+        selecter = SQL("SELECT DISTINCT ON (id) id, content FROM kwl_knowls WHERE status = 1 AND id = ANY(%s) ORDER BY id, timestamp DESC")
+        cur = self._execute(selecter, [kids])
+        reviewed = {rec[0]:rec[1] for rec in cur}
+
+        for k in knowls:
+            k.reviewed_content = reviewed.get(k.id)
+        self._set_referrers(knowls)
+        return knowls
+
+    def stale_knowls(self):
+        fields = ['id'] + self._default_fields
+        selecter = SQL("SELECT {0}, {1} FROM (SELECT DISTINCT ON (id) {2} FROM kwl_knowls WHERE status = 0 AND type != -2 ORDER BY id, timestamp DESC) a, (SELECT DISTINCT ON (id) {2} FROM kwl_knowls WHERE status = 1 AND type != -2 ORDER BY id, timestamp DESC) b WHERE a.id = b.id AND a.timestamp > b.timestamp ORDER BY a.timestamp").format(
+            SQL(", ").join(SQL("a.{0}").format(Identifier(col)) for col in fields),
+            SQL(", ").join(SQL("b.{0}").format(Identifier(col)) for col in fields),
+            SQL(", ").join(map(Identifier, fields)))
+        data = list(self._execute(selecter))
+        knowls = [Knowl(rec[0], data={k:v for k,v in zip(fields, rec)}) for rec in data]
+        for knowl, rec in zip(knowls, data):
+            D = {k:v for k,v in zip(fields, rec[len(fields):])}
+            knowl.reviewed_content = D["content"]
+        self._set_referrers(knowls)
         return knowls
 
     def ids_referencing(self, knowlid, old=False, beta=None):
-        """Returns all ids that reference the given one.
+        """
+        Returns all ids that reference the given one.
 
         Note that if running on prod, and the reviewed version of a knowl doesn't
         reference knowlid but a more recent beta version does, it will be included
@@ -395,13 +455,53 @@ class KnowlBackend(PostgresBase):
         else:
             return [rec[0] for rec in cur]
 
+    def orphans(self, old=False, beta=None):
+        """
+        Returns lists of knowl ids (grouped by category) that are not referenced by any code or other knowl.
+        """
+        kids = set(k['id'] for k in self.get_all_knowls(['id'], types=[0]) if not any(k['id'].startswith(x) for x in ["users.", "test."]))
+        def filter_from_matches(pattern):
+            matches = subprocess.check_output(['git', 'grep', '-E', '--full-name', '--line-number', '--context', '2', pattern],encoding='utf-8').split('\n--\n')
+            for match in matches:
+                lines = match.split('\n')
+                for line in lines:
+                    m = grep_extractor.match(line)
+                    if m and m.group(2) == ':': # active match rather than context
+                        for kid in extract_links(line):
+                            if kid in kids:
+                                kids.remove(kid)
+
+        # Find references in the codebase
+        filter_from_matches(link_finder_re.pattern)
+        selecter = SQL("SELECT DISTINCT ON (id) id, links, cat, title FROM kwl_knowls WHERE status >= %s ORDER BY id, timestamp DESC")
+        cur = self._execute(selecter, [0])
+        categories = {}
+        titles = {}
+        for rec in cur:
+            categories[rec[0]] = rec[2]
+            titles[rec[0]] = rec[3]
+            for link in rec[1]:
+                if link in kids:
+                    kids.remove(link)
+        # Some of these might be spurious since they may occur in the code in strange ways, so we do a grep for all of the ids.
+        pattern = "|".join(kid.replace(".", r"\.") for kid in kids)
+        filter_from_matches(pattern)
+        # Now group by category
+        by_category = defaultdict(list)
+        for kid in kids:
+            by_category[categories[kid]].append((titles[kid], kid))
+        for cat in by_category:
+            L = sorted(by_category[cat])
+            by_category[cat] = [kid for (title, kid) in L]
+        return by_category
+
     @staticmethod
     def _process_git_grep(match):
         line_numbers = []
         filename = None
         code = []
         for line in match.split('\n'):
-            if not line.strip():
+            if not line.strip() or line.startswith("Binary file "):
                 continue
             m = grep_extractor.match(line)
             if not m:
@@ -440,7 +540,10 @@ class KnowlBackend(PostgresBase):
         matches = []
         for kid in kids:
             try:
-                matches.extend(subprocess.check_output(['git', 'grep', '--full-name', '--line-number', '--context', '2', """['"]%s['"]"""%(kid.replace('.',r'\.'))]).decode('utf-8').split(u'\n--\n'))
+                if sys.version_info[0] == 3:
+                    matches.extend(subprocess.check_output(['git', 'grep', '--full-name', '--line-number', '--context', '2', """['"]%s['"]"""%(kid.replace('.',r'\.'))],encoding='utf-8').split(u'\n--\n'))
+                else:
+                    matches.extend(subprocess.check_output(['git', 'grep', '--full-name', '--line-number', '--context', '2', """['"]%s['"]"""%(kid.replace('.',r'\.'))]).split(u'\n--\n'))
             except subprocess.CalledProcessError: # no matches
                 pass
         return [self._process_git_grep(match) for match in matches]
@@ -455,10 +558,14 @@ class KnowlBackend(PostgresBase):
         - -1 if the knowl is referenced but cannot be safely replaced.
         """
         try:
-            matches = subprocess.check_output(['git', 'grep', """['"]%s['"]"""%(knowlid.replace('.',r'\.'))]).split('\n')
+            if sys.version_info[0] == 3:
+                matches = subprocess.check_output(['git', 'grep', """['"]%s['"]"""%(knowlid.replace('.',r'\.'))],encoding='utf-8').split('\n')
+            else:
+                matches = subprocess.check_output(['git', 'grep', """['"]%s['"]"""%(knowlid.replace('.',r'\.'))]).split('\n')
         except subprocess.CalledProcessError: # no matches
             return 0
-        easy_matches = subprocess.check_output(['git', 'grep', knowlid.replace('.',r'\.')]).split('\n')
+
+        easy_matches = subprocess.check_output(['git', 'grep', knowlid.replace('.',r'\.')],encoding='utf-8').split('\n')
         return 1 if (len(matches) == len(easy_matches)) else -1
 
     def start_rename(self, knowl, new_name, who):
@@ -526,10 +633,10 @@ class KnowlBackend(PostgresBase):
         if execute:
             for kid in bad_names:
                 new_kid = kid.replace('-', '_')
-                print "Renaming %s -> %s" % (kid, new_kid)
+                print("Renaming %s -> %s" % (kid, new_kid))
                 self.rename(kid, new_kid)
         else:
-            print bad_names
+            print(bad_names)
 
     def broken_links_knowls(self):
         """
@@ -539,7 +646,7 @@ class KnowlBackend(PostgresBase):
 
         A list of pairs ``kid``, ``links``, where ``links`` is a list of broken links on the knowl with id ``kid``.
         """
-        selecter = SQL("SELECT id, link FROM (SELECT DISTINCT ON (id) id, UNNEST(links) AS link FROM kwl_knowls ORDER BY id, timestamp DESC) knowls WHERE (SELECT COUNT(*) FROM kwl_knowls kw WHERE kw.id = link) = 0")
+        selecter = SQL("SELECT id, link FROM (SELECT DISTINCT ON (id) id, UNNEST(links) AS link FROM kwl_knowls WHERE status >= 0 ORDER BY id, timestamp DESC) knowls WHERE (SELECT COUNT(*) FROM kwl_knowls kw WHERE kw.id = link) = 0")
         results = defaultdict(list)
         for kid, link in self._execute(selecter):
             results[kid].append(link)
@@ -556,7 +663,10 @@ class KnowlBackend(PostgresBase):
         ids that show up in an expression of the form ``KNOWL('BAD_ID')``.
         """
         all_kids = set(k['id'] for k in self.get_all_knowls(['id']))
-        matches = subprocess.check_output(['git', 'grep', '-E', '--full-name', '--line-number', '--context', '2', r"""KNOWL(_INC)?[(]\s*['"]"""]).split('\n--\n')
+        if sys.version_info[0] == 3:
+            matches = subprocess.check_output(['git', 'grep', '-E', '--full-name', '--line-number', '--context', '2', link_finder_re.pattern],encoding='utf-8').split('\n--\n')
+        else:
+            matches = subprocess.check_output(['git', 'grep', '-E', '--full-name', '--line-number', '--context', '2', link_finder_re.pattern]).split('\n--\n')
         results = []
         for match in matches:
             lines = match.split('\n')
@@ -612,9 +722,8 @@ class KnowlBackend(PostgresBase):
         kt = self.knowl_title(kid)
         if kt is not None:
             return True
-        if allow_deleted:
-            return self.get_knowl(kid, ['id'], beta=True, allow_deleted=True) is not None
-        return False
+        k = self.get_knowl(kid, ['id'], beta=True, allow_deleted=allow_deleted)
+        return k is not None
 
     def get_categories(self):
         """
@@ -639,10 +748,21 @@ def knowl_title(kid):
 def knowl_exists(kid):
     return knowldb.knowl_exists(kid)
 
+def knowl_url_prefix():
+    """
+    why is this function needed?
+    if you're running lmfdb in cocalc, front-end javascript (see: lmfdb.js) doesn't know your prefix isn't just a website domain.
+    """
+    flask_options = Configuration().get_flask()
+    if "COCALC_PROJECT_ID" in os.environ:
+        return 'https://cocalc.com/' + os.environ['COCALC_PROJECT_ID'] + "/server/" + str(flask_options['port'])
+    else:
+        return ""
+
 # allowed qualities for knowls
 knowl_status_code = {'reviewed':1, 'beta':0, 'in progress': -1, 'deleted': -2}
 reverse_status_code = {v:k for k,v in knowl_status_code.items()}
-knowl_type_code = {'normal': 0, 'top': 1, 'bottom': -1}
+knowl_type_code = {'normal': 0, 'top': 1, 'bottom': -1, 'column': 2}
 
 class Knowl(object):
     """
@@ -692,16 +812,16 @@ class Knowl(object):
         self.editing = editing
         # We need to have the source available on comments being created
         if self.type is None:
-            match = comment_knowl_re.match(ID)
-            if match:
-                self.source = match.group(1)
-                self.type = -2
-            elif top_knowl_re.match(ID):
-                self.type = 1
-            elif bottom_knowl_re.match(ID):
-                self.type = -1
+            self.type, self.source, self.source_name = extract_typ(ID)
+        if self.type == 2:
+            pieces = ID.split(".")
+            # Ignore the title passed in
+            self.title = f"Column {pieces[2]} of table {pieces[1]}"
+            from lmfdb import db
+            if pieces[1] in db.tablenames:
+                self.coltype = db[pieces[1]].col_type.get(pieces[2], "DEFUNCT")
             else:
-                self.type = 0
+                self.coltype = "DEFUNCT"
         #self.reviewer = data.get('reviewer') # Not returned by get_knowl by default
         #self.review_timestamp = data.get('review_timestamp') # Not returned by get_knowl by default
 

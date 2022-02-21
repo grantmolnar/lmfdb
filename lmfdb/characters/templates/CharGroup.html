@@ -1,7 +1,6 @@
-{% extends 'Charpage.html' %}
+{% extends 'homepage.html' %}
 
-{% block description %}
-
+{% block content %}
 
 {# Underlying group #}
 
@@ -51,28 +50,35 @@ and several values of the character.
 </p>
 <table class="ntdata" id="chitable">
   <thead class="space">
-    <tr> 
-      <th class="left"> </th>
-      {% for h in headers %} <th class="weight">{{h}} </th> {% endfor %}
-      {% for v in groupelts %} <th >{{v}} </th> {% endfor %}
+    <tr>
+      {% for h in headers %} <th class="center">{{h}} </th> {% endfor %}
+      {% for v in groupelts %} <th class="center">\({{v}}\)</th> {% endfor %}
     </tr>
   </thead>
   <tbody>
-    {% for char, prop, values in contents %}
+    {% for char, orb, prop, values in contents %}
     {# row = ( label, tex, order, primitive ) #}
     <tr>
-      <th class="left">
+      <td class="left">
         {% with mod,num,tex,prim = char %}
         <a class="{% if prim -%}primitive{%- else -%}imprimitive{%- endif %}"
           align="center" href="{{ url_character(type=type, number_field=nflabel, modulus=mod, number=num) }}">
           {{ tex }}
         </a>
         {% endwith %}
-      </th>
-      {% for value in prop %} <td style="font-family: serif;" >{{value}}</td> {% endfor %} 
-      {% for value in values %} <td style="font-family: serif;" >{{value}}</td> {% endfor %} 
+      </td>
+      <td class="left">
+        {% with mod,letter,orb_disp = orb %}
+        <a class="center"
+          align="center" href="{{ url_character(type=type, number_field=nflabel, modulus=mod, orbit_label=letter) }}">
+          {{ orb_disp }}
+        </a>
+        {% endwith %}
+      </td>
+      {% for value in prop %} <td class="center">{{value}}</td> {% endfor %}
+      {% for value in values %} <td class="center">{{value}}</td> {% endfor %}
     </tr>
-    {% endfor %} 
+    {% endfor %}
   </tbody>
 </table>
 {% endif %}

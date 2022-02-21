@@ -27,7 +27,7 @@ login_manager = LoginManager()
 
 # We log a warning if the version of flask-login is less than FLASK_LOGIN_LIMIT
 FLASK_LOGIN_LIMIT = '0.3.0'
-from pwdmanager import userdb, LmfdbUser, LmfdbAnonymousUser
+from .pwdmanager import userdb, LmfdbUser, LmfdbAnonymousUser
 
 base_url = "http://beta.lmfdb.org"
 
@@ -98,7 +98,6 @@ def base_bread():
 
 
 @login_page.route("/")
-@login_required
 def list():
     COLS = 5
     users = userdb.get_user_list()
@@ -106,11 +105,12 @@ def list():
     users = sorted(users, key=lambda x: x[1].strip().split(" ")[-1].lower())
     if len(users)%COLS:
         users += [{} for i in range(COLS-len(users)%COLS)]
-    n = len(users)/COLS
-    user_rows = zip(*[users[i*n:(i+1)*n] for i in range(COLS)])
+    n = len(users)//COLS
+    user_rows = tuple(zip(*[users[i*n: (i + 1)*n] for i in range(COLS)]))
     bread = base_bread()
     return render_template("user-list.html", title="All Users",
                            user_rows=user_rows, bread=bread)
+
 
 @login_page.route("/change_colors/<int:scheme>")
 @login_required
@@ -141,18 +141,20 @@ def info():
 @login_page.route("/info", methods=['POST'])
 @login_required
 def set_info():
-    for k, v in request.form.iteritems():
-        setattr(current_user, k, v)
+    for k, v in request.form.items():
+        if v:
+            setattr(current_user, k, v)
     current_user.save()
     flask.flash(Markup("Thank you for updating your details!"))
     return flask.redirect(url_for(".info"))
 
 
 @login_page.route("/profile/<userid>")
-@login_required
 def profile(userid):
-    # See issue #1169
     user = LmfdbUser(userid)
+    if not user.exists:
+        flash_error("User %s does not exist", userid)
+        return flask.redirect(url_for(".list"))
     bread = base_bread() + [(user.name, url_for('.profile', userid=user.get_id()))]
     from lmfdb.knowledge.knowl import knowldb
     userknowls = knowldb.search(author=userid, sort=['title'])
@@ -167,7 +169,7 @@ def login(**kwargs):
     name = request.form["name"]
     password = request.form["password"]
     next = request.form["next"]
-    remember = True if request.form["remember"] == "on" else False
+    remember = request.form.get("remember") == "on"
     user = LmfdbUser(name)
     if user and user.authenticate(password):
         login_user(user, remember=remember)
@@ -201,7 +203,7 @@ def knowl_reviewer_required(fn):
     def decorated_view(*args, **kwargs):
         logger.info("reviewer access attempt by %s" % current_user.get_id())
         if not current_user.is_knowl_reviewer():
-            return flask.abort(403)  # acess denied
+            return flask.abort(403)  # access denied
         return fn(*args, **kwargs)
     return decorated_view
 
@@ -240,14 +242,14 @@ def register(N=10):
 @login_page.route("/register/<token>", methods=['GET', 'POST'])
 def register_token(token):
     if not userdb._rw_userdb:
-        flask.abort(401, "no attempt to create user, not enough privileges");
+        flask.abort(401, "no attempt to create user, not enough privileges")
     userdb.delete_old_tokens()
     if not userdb.token_exists(token):
         flask.abort(401)
     bread = base_bread() + [('Register', url_for(".register_new"))]
-    if request.method == "GET":
+    if request.method != 'POST':
         return render_template("register.html", title="Register", bread=bread, next=request.referrer or "/", token=token)
-    elif request.method == 'POST':
+    else: # must be post
         name = request.form['name']
         if not allowed_usernames.match(name):
             flash_error("""Oops, usename '%s' is not allowed.
@@ -313,7 +315,29 @@ def logout():
 
 
 @login_page.route("/admin")
-@login_required
 @admin_required
 def admin():
     return "success: only admins can read this!"
+
+
+@app.route("/restartserver")
+@admin_required
+def restart():
+    import sys
+    from subprocess import Popen, PIPE
+    from urllib.parse import urlparse
+    urlparts = urlparse(request.url)
+    if urlparts.netloc == "beta.lmfdb.org":
+        command = ['bash', '/home/lmfdb/restart-dev']
+    elif urlparts.netloc in ["prodweb1.lmfdb.xyz", "prodweb2.lmfdb.xyz"]:
+        command = ['bash', '/home/lmfdb/restart-web']
+    else:
+        command = None
+    if command:
+        if sys.version_info[0] == 3:
+            out = Popen(command, stdout=PIPE, encoding='utf-8').communicate()[0]
+        else:
+            out = Popen(command, stdout=PIPE).communicate()[0]
+        return out.replace('\n', '<br>')
+    else:
+        return "Only supported in beta.lmfdb.org, prodweb1.lmfdb.xyz, and prodweb2.lmfdb.xyz"

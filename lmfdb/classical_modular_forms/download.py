@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 from ast import literal_eval
-from flask import  url_for, redirect, abort
+from flask import url_for, redirect, abort
 from lmfdb import db
 from lmfdb.backend.encoding import Json
 from lmfdb.utils import Downloader, flash_error
-from lmfdb.classical_modular_forms.web_newform import WebNewform, encode_hecke_orbit
+from lmfdb.classical_modular_forms.web_newform import WebNewform
 from lmfdb.classical_modular_forms.web_space import WebNewformSpace, WebGamma1Space
+
 
 class CMF_download(Downloader):
     table = db.mf_newforms
     title = 'Classical modular forms'
-    data_format = ['N=level', 'k=weight', 'dim', 'N*k^2', 'defining polynomial', 'number field label', 'CM discriminants', 'RM discriminants', 'first few traces']
+    data_format = ['N=level', 'k=weight', 'dim', 'analytic conductor', 'defining polynomial', 'number field label', 'CM discriminants', 'RM discriminants', 'first few traces - a2,a3,a5,a7']
     columns = ['level', 'weight', 'dim', 'analytic_conductor', 'field_poly', 'nf_label', 'cm_discs', 'rm_discs', 'trace_display']
 
     def _get_hecke_nf(self, label):
@@ -83,11 +84,11 @@ class CMF_download(Downloader):
             'convert_elt_to_field = lambda elt: sum(c*beta for c, beta in zip(elt, betas))']
 
     field_and_convert_sage_generic = [
-            'from sage.all import PolynomialRing, NumberField',
+            'from sage.all import PolynomialRing, NumberField, ZZ',
             'R = PolynomialRing(QQ, "x")',
             'f = R(poly_data)',
             'K = NumberField(f, "a")',
-            'betas = [K([c/den for c in num]) for num, den in basis_data]',
+            'betas = [K([c/ZZ(den) for c in num]) for num, den in basis_data]',
             'convert_elt_to_field = lambda elt: sum(c*beta for c, beta in zip(elt, betas))']
 
     field_and_convert_sage_sparse_cyclotomic = [
@@ -148,8 +149,8 @@ class CMF_download(Downloader):
 
         aps = hecke_nf['ap']
         level, weight = map(int, label.split('.')[:2])
-        level_data = self.assign(lang, 'level', level);
-        weight_data = self.assign(lang, 'weight', weight);
+        level_data = self.assign(lang, 'level', level)
+        weight_data = self.assign(lang, 'weight', weight)
 
         c = self.comment_prefix[lang]
         func_start = self.get('function_start',{}).get(lang,[])
@@ -157,9 +158,9 @@ class CMF_download(Downloader):
 
         explain = '\n'
         explain += c + ' We generate the q-expansion using the Hecke eigenvalues a_p at the primes.\n'
-        aps_data = self.assign(lang, 'aps_data', aps);
+        aps_data = self.assign(lang, 'aps_data', aps)
         code = ''
-        hecke_ring_character_values = self.assign(lang, 'hecke_ring_character_values', hecke_nf['hecke_ring_character_values']);
+        hecke_ring_character_values = self.assign(lang, 'hecke_ring_character_values', hecke_nf['hecke_ring_character_values'])
 
         if hecke_nf['hecke_ring_cyclotomic_generator'] > 0:
             func_body =  self.get('qexp_function_body_sparse_cyclotomic',{}).get(lang,[])
@@ -181,7 +182,7 @@ class CMF_download(Downloader):
                 basis_data = '\n' + c + ' The entries in the following list give a basis for the\n'
                 basis_data += c + ' coefficient ring in terms of a root of the defining polynomial above.\n'
                 basis_data += c + ' Each line consists of the coefficients of the numerator, and a denominator.\n'
-                basis_data += self.assign(lang,  'basis_data ', zip(hecke_nf['hecke_ring_numerators'], hecke_nf['hecke_ring_denominators']))
+                basis_data += self.assign(lang,  'basis_data ', list(zip(hecke_nf['hecke_ring_numerators'], hecke_nf['hecke_ring_denominators'])))
                 basis_data += '\n'
                 func_body = self.get('qexp_function_body_generic',{}).get(lang,[])
 
@@ -240,42 +241,42 @@ class CMF_download(Downloader):
     def download_multiple_space_traces(self, info):
         return self.download_multiple_traces(info, spaces=True)
 
-    def _download_cc(self, label, lang, col, suffix, title):
-        try:
-            code = encode_hecke_orbit(label)
-        except ValueError:
-            return abort(404, "Invalid label: %s"%label)
-        if not db.mf_hecke_cc.exists({'hecke_orbit_code':code}):
-            return abort(404, "No form found for %s"%(label))
-        def cc_generator():
-            yield '[\n'
-            for ev in db.mf_hecke_cc.search(
-                    {'hecke_orbit_code':code},
-                    ['label',
-                     'embedding_root_real',
-                     'embedding_root_imag',
-                     col],
-                    sort=['conrey_index', 'embedding_index']):
-                D = {'label':ev.get('label'),
-                     col:ev.get(col)}
-                root = (ev.get('embedding_root_real'),
-                        ev.get('embedding_root_imag'))
-                if root != (None, None):
-                    D['root'] = root
-                yield Json.dumps(D) + ',\n\n'
-            yield ']\n'
-        filename = label + suffix
-        title += ' for newform %s,'%(label)
-        return self._wrap_generator(cc_generator(),
-                                    filename,
-                                    lang=lang,
-                                    title=title)
-
-    def download_cc_data(self, label, lang='text'):
-        return self._download_cc(label, lang, 'an_normalized', '.cplx', 'Complex embeddings')
-
-    def download_satake_angles(self, label, lang='text'):
-        return self._download_cc(label, lang, 'angles', '.angles', 'Satake angles')
+#    def _download_cc(self, label, lang, col, suffix, title):
+#        try:
+#            code = encode_hecke_orbit(label)
+#        except ValueError:
+#            return abort(404, "Invalid label: %s"%label)
+#        if not db.mf_hecke_cc.exists({'hecke_orbit_code':code}):
+#            return abort(404, "No form found for %s"%(label))
+#        def cc_generator():
+#            yield '[\n'
+#            for ev in db.mf_hecke_cc.search(
+#                    {'hecke_orbit_code':code},
+#                    ['label',
+#                     'embedding_root_real',
+#                     'embedding_root_imag',
+#                     col],
+#                    sort=['conrey_index', 'embedding_index']):
+#                D = {'label':ev.get('label'),
+#                     col:ev.get(col)}
+#                root = (ev.get('embedding_root_real'),
+#                        ev.get('embedding_root_imag'))
+#                if root != (None, None):
+#                    D['root'] = root
+#                yield Json.dumps(D) + ',\n\n'
+#            yield ']\n'
+#        filename = label + suffix
+#        title += ' for newform %s,'%(label)
+#        return self._wrap_generator(cc_generator(),
+#                                    filename,
+#                                    lang=lang,
+#                                    title=title)
+#
+#    def download_cc_data(self, label, lang='text'):
+#        return self._download_cc(label, lang, 'an_normalized', '.cplx', 'Complex embeddings')
+#
+#    def download_satake_angles(self, label, lang='text'):
+#        return self._download_cc(label, lang, 'angles', '.angles', 'Satake angles')
 
     def download_embedding(self, label, lang='text'):
         data = db.mf_hecke_cc.lucky({'label':label},
@@ -300,12 +301,9 @@ class CMF_download(Downloader):
         if data is None:
             return abort(404, "Label not found: %s"%label)
         form = WebNewform(data)
-        form.setup_cc_data({'m':'1-%s'%form.dim})
         if form.has_exact_qexp:
             data['qexp'] = form.qexp
             data['traces'] = form.texp
-        if form.has_complex_qexp:
-            data['complex_embeddings'] = form.cc_data
         return self._wrap(Json.dumps(data),
                           label,
                           lang=lang,
@@ -332,7 +330,9 @@ class CMF_download(Downloader):
         for attr in ['level', 'weight', 'label', 'oldspaces']:
             data[attr] = getattr(space, attr)
         data['newspaces'] = [spc['label'] for spc, forms in space.decomp]
-        data['newforms'] = sum([[form['label'] for form in forms] for spc, forms in space.decomp], [])
+        data['newforms'] = sum([[form['label'] for form in forms] if spc.get('num_forms') is not None else [None] for spc, forms in space.decomp], [])
+        if None in data['newforms']:
+            data.pop('newforms')
         data['dimgrid'] = space.dim_grid._grid
         return self._wrap(Json.dumps(data),
                           label,
@@ -383,7 +383,7 @@ class CMF_download(Downloader):
         if newform.dim == 1:
             return begin + [
                     '        Kf := Rationals();',
-                    '    end if;'
+                    '    end if;',
                     '    return [Kf!elt[1] : elt in input];',
                     'end function;',
                     ]
@@ -557,7 +557,7 @@ class CMF_download(Downloader):
                 "end function;",
                 ]
 
-    def _magma_MakeNewformModFrm(self, newform, hecke_nf, prec):
+    def _magma_MakeNewformModFrm(self, newform, hecke_nf):
         """
         Given a WebNewform r from mf_newforms containing columns
            label,level,weight,char_orbit_label,char_values
@@ -574,24 +574,32 @@ class CMF_download(Downloader):
         return [
                 '// To make the newform (type ModFrm), type "MakeNewformModFrm_%s();".' % (newform.label.replace(".", "_"), ),
                 '// This may take a long time!  To see verbose output, uncomment the SetVerbose lines below.',
-                'function MakeNewformModFrm_%s(:prec:=%d)' % (newform.label.replace(".","_"), prec),
-                '    prec := Min(prec, NextPrime(%d) - 1);' % hecke_nf['maxp'],
+                '// The precision argument determines an initial guess on how many Fourier coefficients to use.',
+                '// This guess is increased enough to uniquely determine the newform.',
+                'function MakeNewformModFrm_%s(:prec:=%d)' % (newform.label.replace(".","_"), newform.dim),
                 '    chi := MakeCharacter_%d_%s();' % (newform.level, newform.char_orbit_label),
                 '    f_vec := qexpCoeffs();',
                 '    Kf := Universe(f_vec);',
-                '    f_vec := Vector(Kf, [0] cat [f_vec[i]: i in [1..prec]]);',
                 '    // SetVerbose("ModularForms", true);',
                 '    // SetVerbose("ModularSymbols", true);',
                 '    S := CuspidalSubspace(ModularForms(chi, %d));' % newform.weight,
+                '    S := BaseChange(S, Kf);',
+                '    maxprec := NextPrime(%d) - 1;' % hecke_nf['maxp'],
+                '    while true do',
+                '        trunc_vec := Vector(Kf, [0] cat [f_vec[i]: i in [1..prec]]);',
                 # weight 1 does not have NewSpace functionality, and anyway that
                 # would be an extra possibly expensive linear algebra step
-                '    S := BaseChange(S, Kf);',
-                '    B := Basis(S, prec + 1);',
-                '    S_basismat := Matrix([AbsEltseq(g): g in B]);',
-                '    S_basismat := ChangeRing(S_basismat,Kf);',
-                '    f_lincom := Solution(S_basismat,f_vec);',
-                '    f := &+[f_lincom[i]*Basis(S)[i] : i in [1..#Basis(S)]];',
-                '    return f;',
+                '        B := Basis(S, prec + 1);',
+                '        S_basismat := Matrix([AbsEltseq(g): g in B]);',
+                '        if Rank(S_basismat) eq Min(NumberOfRows(S_basismat), NumberOfColumns(S_basismat)) then',
+                '            S_basismat := ChangeRing(S_basismat,Kf);',
+                '            f_lincom := Solution(S_basismat,trunc_vec);',
+                '            f := &+[f_lincom[i]*Basis(S)[i] : i in [1..#Basis(S)]];',
+                '            return f;',
+                '        end if;',
+                '        error if prec eq maxprec, "Unable to distinguish newform within newspace";',
+                '        prec := Min(Ceiling(1.25 * prec), maxprec);',
+                '    end while;',
                 'end function;'
                 ]
 
@@ -604,14 +612,12 @@ class CMF_download(Downloader):
         hecke_nf = self._get_hecke_nf(label)
 
         out = []
-        newlines = ['']*2;
+        newlines = [''] * 2
         if newform.has_exact_qexp:
             out += self._magma_ConvertToHeckeField(newform, hecke_nf) + newlines
 
         out += self._magma_MakeCharacters(newform, hecke_nf) + newlines
 
-        if newform.hecke_cutters is not None and newform.weight > 1:
-            out += self._magma_MakeNewformModSym(newform, hecke_nf) + newlines
         if newform.has_exact_qexp:
             # to return errors
             # this line will never be ran if the data is correct
@@ -621,9 +627,11 @@ class CMF_download(Downloader):
             out += self._magma_qexpCoeffs(newform, hecke_nf) + newlines
 
 
-            # figure out prec
-            prec = db.mf_newspaces.lucky({'label': newform.space_label}, 'sturm_bound')
-            out += self._magma_MakeNewformModFrm(newform, hecke_nf, prec)
+            # The Sturm bound is not enough precision; see Github issue 4354
+            # prec = db.mf_newspaces.lucky({'label': newform.space_label}, 'sturm_bound')
+            out += self._magma_MakeNewformModFrm(newform, hecke_nf) + newlines
+        if newform.hecke_cutters is not None and newform.weight > 1:
+            out += self._magma_MakeNewformModSym(newform, hecke_nf)
 
         outstr = "\n".join(out)
 

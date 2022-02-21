@@ -229,12 +229,12 @@ class ColorScheme(object):
         'chi_table_background': 'col_main_ld', # This was specified twice in color.css; could also be col_main_ll
         'chi_table_border': 'col_main_dl',
 
-        # acknowledgements
+        # acknowledgments
         'text_affil': '#333',
         'text_notes': '#555',
         'text_trad_hyperlink': c.black,
 
-        # Elliptic Curve colors
+        # Elliptic curve colors
         'ec_background': 'col_main_2',
 
         # Siegel modular forms
@@ -375,6 +375,7 @@ class JohnBlue(YellowKnowls):
     col_main_d  = c.black # ?00
     knowl_hyper_text = '#1565C0' # P1-800
     knowl_shadow = '#0D47A1' # P1-900
+    table_ntdata_background = c.white
 
 class SteelBlue(GreyKnowls):
     code = 19
@@ -409,6 +410,7 @@ class SteelBlue(GreyKnowls):
     knowl_error = '#006d05'
     chi_table_background = '#E3F2FD'
     chitable_imprimitive = c.black
+    table_ntdata_background = c.white
 
 class IndigoHair(YellowKnowls):
     code = 18

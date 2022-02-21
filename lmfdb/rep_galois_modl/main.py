@@ -1,12 +1,13 @@
-
-
-import ast, re, StringIO, time
+import ast
+import re
+from io import BytesIO
+import time
 
 from flask import make_response, send_file, request, render_template, redirect, url_for
 from sage.all import ZZ, conway_polynomial
 
 from lmfdb import db
-from lmfdb.utils import flash_error, parse_ints, parse_list, search_wrap
+from lmfdb.utils import flash_error, parse_ints, parse_list, search_wrap, redirect_no_cache
 #should these functions be defined in lattices or somewhere else?
 from lmfdb.lattice.main import vect_to_sym, vect_to_matrix
 from lmfdb.rep_galois_modl import rep_galois_modl_page #, rep_galois_modl_logger
@@ -16,13 +17,15 @@ rep_galois_modl_credit = 'Samuele Anni, Anna Medvedovsky, Bartosz Naskrecki, Dav
 
 # utilitary functions for displays
 
+
 def my_latex(s):
+    # This code was copy pasted and should be refactored
     ss = ""
-    ss += re.sub('x\d', 'x', s)
-    ss = re.sub("\^(\d+)", "^{\\1}", ss)
-    ss = re.sub('\*', '', ss)
-    ss = re.sub('zeta(\d+)', 'zeta_{\\1}', ss)
-    ss = re.sub('zeta', '\zeta', ss)
+    ss += re.sub(r'x\d', 'x', s)
+    ss = re.sub(r"\^(\d+)", r"^{\1}", ss)
+    ss = re.sub(r'\*', '', ss)
+    ss = re.sub(r'zeta(\d+)', r'zeta_{\1}', ss)
+    ss = re.sub('zeta', r'\zeta', ss)
     ss += ""
     return ss
 
@@ -34,6 +37,7 @@ def get_bread(breads=[]):
         bc.append(b)
     return bc
 
+
 def learnmore_list():
     return [('Completeness of the data', url_for(".completeness_page")),
             ('Source of the data', url_for(".how_computed_page")),
@@ -41,7 +45,7 @@ def learnmore_list():
 
 # Return the learnmore list with the matchstring entry removed
 def learnmore_list_remove(matchstring):
-    return filter(lambda t:t[0].find(matchstring) <0, learnmore_list())
+    return [t for t in learnmore_list() if t[0].find(matchstring) < 0]
 
 
 # webpages: main, random and search results
@@ -49,15 +53,15 @@ def learnmore_list_remove(matchstring):
 @rep_galois_modl_page.route("/")
 def rep_galois_modl_render_webpage():
     args = request.args
-    if len(args) == 0:
+    if not args:
         # FIXME THIS VARIABLE IS NEVER USED
         #counts = get_stats().counts()
-        dim_list= range(1, 11, 1)
+        dim_list= list(range(1, 11, 1))
         max_class_number=20
-        class_number_list=range(1, max_class_number+1, 1)
+        class_number_list=list(range(1, max_class_number+1, 1))
         det_list_endpoints = [1, 5000, 10000, 20000, 25000, 30000]
 #        if counts['max_det']>3000:
-#            det_list_endpoints=det_list_endpoints+range(3000, max(int(round(counts['max_det']/1000)+2)*1000, 10000), 1000)
+#            det_list_endpoints=det_list_endpoints+range(3000, max(int(round(counts['max_det'] // 1000)+2)*1000, 10000), 1000)
         det_list = ["%s-%s" % (start, end - 1) for start, end in zip(det_list_endpoints[:-1], det_list_endpoints[1:])]
         name_list = ["A2","Z2", "D3", "D3*", "3.1942.3884.56.1", "A5", "E8", "A14", "Leech"]
         info = {'dim_list': dim_list,'class_number_list': class_number_list,'det_list': det_list, 'name_list': name_list}
@@ -71,9 +75,10 @@ def rep_galois_modl_render_webpage():
 
 # Random rep_galois_modl
 @rep_galois_modl_page.route("/random")
+@redirect_no_cache
 def random_rep_galois_modl():
     label = db.modlgal_reps.random()
-    return redirect(url_for(".render_rep_galois_modl_webpage", label=label))
+    return url_for(".render_rep_galois_modl_webpage", label=label)
 
 
 rep_galois_modl_label_regex = re.compile(r'(\d+)\.(\d+)\.(\d+)\.(\d+)\.(\d*)')
@@ -116,25 +121,25 @@ def download_search(info):
     mat_end = "~)" if lang == 'gp' else ")"
     entry = lambda r: "".join([mat_start,str(r),mat_end])
     # loop through all search results and grab the gram matrix
-    s += ",\\\n".join([entry(gram) for gram in res])
+    s += ",\\\n".join(entry(gram) for gram in res)
     s += list_end
     s += download_assignment_end[lang]
     s += '\n'
-    strIO = StringIO.StringIO()
-    strIO.write(s)
+    strIO = BytesIO()
+    strIO.write(s.encode('utf-8'))
     strIO.seek(0)
     return send_file(strIO, attachment_filename=filename, as_attachment=True, add_etags=False)
 
 @search_wrap(template="rep_galois_modl-search.html",
              table=db.modlgal_reps,
-             title='Mod &#x2113; Galois representations Search Results',
-             err_title='Mod &#x2113; Galois representations Search Results Error',
+             title='Mod &#x2113; Galois representation search results',
+             err_title='Mod &#x2113; Galois representation search results error',
              per_page=50,
              shortcuts={'download':download_search,
                         'label':lambda info:rep_galois_modl_by_label_or_name(info.get('label'))},
              projection=['label','dim','det','level','gram'],
              cleaners={'gram':lambda v:vect_to_matrix(v['gram'])},
-             bread=lambda:[('Representations', "/Representation"),("mod &#x2113;", url_for(".index")), ('Search Results', ' ')],
+             bread=lambda:[('Representations', "/Representation"),("mod &#x2113;", url_for(".index")), ('Search results', ' ')],
              properties=lambda:[],
              learnmore=learnmore_list)
 def rep_galois_modl_search(info, query):
@@ -156,7 +161,7 @@ def render_rep_galois_modl_webpage(**args):
         lab = args.get('label')
         data = db.modlgal_reps.lookup(lab)
     if data is None:
-        t = "Mod &#x2113; Galois representations Search Error"
+        t = "Mod &#x2113; Galois representation search error"
         bread = [('Representations', "/Representation"),("mod &#x2113;", url_for(".rep_galois_modl_render_webpage"))]
         flash_error("%s is not a valid label for a mod &#x2113; Galois representation in the database.", lab)
         return render_template("rep_galois_modl-error.html", title=t, properties=[], bread=bread, learnmore=learnmore_list())
@@ -189,8 +194,8 @@ def render_rep_galois_modl_webpage(**args):
     if info['field_deg'] > int(1):
         try:
             pol=str(conway_polynomial(data['characteristic'], data['deg'])).replace("*", "")
-            info['field_str']=str('$\mathbb{F}_%s \cong \mathbb{F}_%s[a]$ where $a$ satisfies: $%s=0$' %(str(data['field_char']), str(data['field_char']), pol))
-        except:
+            info['field_str']=str(r'$\mathbb{F}_%s \cong \mathbb{F}_%s[a]$ where $a$ satisfies: $%s=0$' %(str(data['field_char']), str(data['field_char']), pol))
+        except Exception:
             info['field_str']=""
 
 
@@ -199,14 +204,14 @@ def render_rep_galois_modl_webpage(**args):
     for n in data['bad_prime_list']:
         try:
             n1=[int(n[0]), str(n[1]), str(n[2]), int(n[3]), int(n[4])]
-        except:
+        except Exception:
             n1=[int(n[0]), str(n[1]), str(n[2]), str(n[3]), str(n[4])]
         info['bad_prime_list'].append(n1)
     info['len_good']=[int(i+1) for i in range(len(data['good_prime_list'][0][1]))]
     for n in data['good_prime_list']:
         try:
             n1=[int(n[0]), [str(m) for m in n[1]], str(n[2]), int(n[3]), int(n[4])]
-        except:
+        except Exception:
             n1=[int(n[0]), [str(m) for m in n[1]], str(n[2]), str(n[3]), str(n[4])]
         info['good_prime_list'].append(n1)
 
@@ -219,14 +224,14 @@ def render_rep_galois_modl_webpage(**args):
         ('Dimension', '%s' %info['dim']),
         ('Field characteristic', '%s' %info['field_char']),
         ('Conductor', '%s' %info['conductor']),]
-    return render_template("rep_galois_modl-single.html", info=info, credit=credit, title=t, bread=bread, properties2=info['properties'], learnmore=learnmore_list(), KNOWL_ID='gal.modl.%s'%info['label'])
+    return render_template("rep_galois_modl-single.html", info=info, credit=credit, title=t, bread=bread, properties=info['properties'], learnmore=learnmore_list(), KNOWL_ID='gal.modl.%s'%info['label'])
 #friends=friends
 
 
 #data quality pages
 @rep_galois_modl_page.route("/Completeness")
 def completeness_page():
-    t = 'Completeness of the integral rep_galois_modl data'
+    t = 'Completeness of integral rep_galois_modl data'
     bread = [('Representations', "/Representation"),("mod &#x2113;", url_for(".rep_galois_modl_render_webpage")),
              ('Completeness', '')]
     credit = rep_galois_modl_credit
@@ -235,7 +240,7 @@ def completeness_page():
 
 @rep_galois_modl_page.route("/Source")
 def how_computed_page():
-    t = 'Source of the integral rep_galois_modl data'
+    t = 'Source of integral rep_galois_modl data'
     bread = [('Representations', "/Representation"),("mod &#x2113;", url_for(".rep_galois_modl_render_webpage")),
              ('Source', '')]
     credit = rep_galois_modl_credit
@@ -296,7 +301,7 @@ def download_rep_galois_modl_full_lists_g(**args):
 
     outstr = c + ' Full list of genus representatives downloaded from the LMFDB on %s. \n\n'%(mydate)
     outstr += download_assignment_start[lang] + '[\\\n'
-    outstr += ",\\\n".join([entry(r) for r in reps])
+    outstr += ",\\\n".join(entry(r) for r in reps)
     outstr += ']'
     outstr += download_assignment_end[lang]
     outstr += '\n'

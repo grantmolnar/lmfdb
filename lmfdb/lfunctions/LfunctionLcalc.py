@@ -1,3 +1,4 @@
+
 # Contains code for constructing and parsing lcalc files
 
 import math
@@ -7,7 +8,8 @@ import socket  # for printing the machine used to generate the lcalc file
 from sage.all import Infinity, imag_part, real_part
 
 from lmfdb.utils import splitcoeff, pair2complex
-from Lfunctionutilities import string2number
+from .Lfunctionutilities import string2number
+
 
 def parse_complex_number(z):
     """convert a string representing a complex number to another string looking like "(x,y)"
@@ -15,8 +17,8 @@ def parse_complex_number(z):
     from sage.all import CC
     try:
         # need to convert from unicode to orginary string type
-        x,y = CC(string2number(str(z)))
-        return "({},{})".format(x,y)
+        x, y = CC(string2number(str(z)))
+        return "({},{})".format(x, y)
     except (TypeError, SyntaxError):
         print("Unable to parse {} as complex number".format(z))
         return "(0,0)"
@@ -145,7 +147,7 @@ def createLcalcfile_ver2(L, url):
     else:
         thefile += "periodic = False\n\n"
 
-    thefile += """\
+    thefile += r"""\
 ##########################################################################################################
 ### The default is to assume that the Dirichlet coefficients are provided
 ### normalized so that the functional equation is s <--> 1-s, i.e. `normalize_by'
@@ -238,7 +240,7 @@ def createLcalcfile_ver2(L, url):
 
 # Lcalc Version 1 ###########################################################
 def parseLcalcfile_ver1(L, filecontents):
-    """ Extracts informtion from the lcalcfile, version 1
+    """ Extracts information from the lcalcfile, version 1
     """
 
     lines = filecontents.split('\n', 6)
@@ -314,11 +316,11 @@ def createLcalcfile_ver1(L):
         thefile += str(
             real_part(L.residues[n])) + " " + str(imag_part(L.residues[n])) + "\n"  # residue at pole
 
-    for n in range(0, len(L.dirichlet_coefficients)):
+    for n in range(len(L.dirichlet_coefficients)):
         thefile += str(real_part(L.dirichlet_coefficients[n]))   # add real part of Dirichlet coefficient
         if not L.selfdual:  # if not selfdual
             thefile += " " + str(imag_part(L.dirichlet_coefficients[n]))
-                                 # add imaginary part of Dirichlet coefficient
+            # add imaginary part of Dirichlet coefficient
         thefile += "\n"
 
     return(thefile)

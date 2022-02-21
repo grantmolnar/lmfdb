@@ -46,8 +46,10 @@ def padded_list(c,k):
         a = c.list(start_val=0)
     return a[:k] + [ZZ(0)]* (k-len(a))
 
+
 def ZpX_key(k):
-    return lambda f: [f.degree()] + flatten(zip(*[padded_list(c,k) for c in f.list()]))
+    return lambda f: [f.degree()] + flatten(list(zip(*[padded_list(c, k)
+                                                       for c in f.list()])))
 
 ###################################################
 #
@@ -58,7 +60,7 @@ def ZpX_key(k):
 def make_keys(K,p):
     """Find and sort all primes of K above p, and store their sort keys in
     a dictionary with keys the primes P and values their sort keys
-    (n,j,e,i) with n the norm, e the ramificatino index, i the index
+    (n,j,e,i) with n the norm, e the ramification index, i the index
     (from 1) in the list of all those primes with the same (n,e), and
     j the index (from 1) in the sorted list of all with the same norm.
     This dict is stored in K in a dict called psort_dict, whose keys
@@ -67,7 +69,7 @@ def make_keys(K,p):
     if not hasattr(K,'psort_dict'):
         K.psort_dict = {}
         K.primes_dict = {}
-    if not p in K.psort_dict:
+    if p not in K.psort_dict:
         #print("creating keys for primes above {}".format(p))
         key_dict = {}
         Fp = GF(p)
@@ -93,24 +95,24 @@ def make_keys(K,p):
             k0 = 20
             ok = False
             while not ok:
-                gfact = [h for h,e in g.factor_padic(p,k0)]
+                gfact = [h for h, e in g.factor_padic(p, k0)]
                 nfact = len(gfact)
                 gf = [h.lift() for h in gfact]
                 k1 = 1
-                while (k1<k0) and not ok:
-                    hh = [h % p**k1 for h  in gf]
-                    ok = len(Set(hh))==nfact
+                while (k1 < k0) and not ok:
+                    hh = [h % p**k1 for h in gf]
+                    ok = len(Set(hh)) == nfact
                     if not ok:
                         k1 += 1
                 if not ok:
-                    k0+=10
+                    k0 += 10
             # now hh holds the factors reduced mod p^k1 and these are
             # distinct so we sort the p-adic factors accordingly (these
             # will be first sorted by degree)
             gfact.sort(key=ZpX_key(k1))
             #print("p-adic factors: {}".format(gfact))
             #print("with keys {}".format([ZpX_key(k1)(h) for h in gfact]))
-            hh = [h.lift() % p**k1 for h  in gfact]
+            hh = [h.lift() % p**k1 for h in gfact]
             #print("p-adic factors mod {}^{}: {}".format(p,k1,hh))
             degs = list(Set([h.degree() for h in gfact]))
             hd = dict([(d,[h for h in hh if h.degree()==d]) for d in degs])
@@ -127,10 +129,10 @@ def make_keys(K,p):
                 key_dict[P] = (P.norm(),e,i)
 
         # Lastly we add a field j to each key (n,e,i) -> (n,j,e,i)
-        # which is its index in the sublist withe same n-value.  This
+        # which is its index in the sublist with the same n-value.  This
         # will not affect sorting but is used in the label n.j.
 
-        vals = key_dict.values()
+        vals = list(key_dict.values())
         new_key_dict = {}
         for P in key_dict:
             k = key_dict[P]
@@ -187,12 +189,13 @@ def primes_of_degree_iter(K, deg, condition=None, sort_key=prime_label, maxnorm=
     condition(p) holds will be returned.  For example,
     condition=lambda:not p.divides(6).
     """
-    for p in primes(2,stop=maxnorm):
-        if condition==None or condition(p):
-            make_keys(K,p)
+    for p in primes(2, stop=maxnorm):
+        if condition is None or condition(p):
+            make_keys(K, p)
             for P in K.primes_dict[p]:
                 if P.residue_class_degree()==deg and P.norm()<=maxnorm:
                     yield P
+
 
 def primes_iter(K, condition=None, sort_key=prime_label, maxnorm=Infinity):
     """Iterator through primes of K, sorted using the provided sort key,
@@ -205,18 +208,20 @@ def primes_iter(K, condition=None, sort_key=prime_label, maxnorm=Infinity):
     # The set of possible degrees f of primes is the set of cycle
     # lengths in the Galois group acting as permutations on the roots
     # of the defining polynomial:
-    dlist = Set(sum([list(g.cycle_type()) for g in K.galois_group('gap').group()],[]))
+
+    dlist = Set([1, 2]) if K.degree() == 2 else Set(sum([list(g.cycle_type()) for g in K.galois_group()],[]))
 
     # Create an array of iterators, one for each residue degree
-    PPs = [primes_of_degree_iter(K,d, condition, sort_key, maxnorm=maxnorm)  for d in dlist]
+    PPs = [primes_of_degree_iter(K, d, condition, sort_key, maxnorm=maxnorm)
+           for d in dlist]
 
     # pop the first prime off each iterator (allowing for the
     # possibility that there may be none):
-    Ps = [0 for d in dlist]
-    ns = [Infinity for d in dlist]
-    for i,PP in enumerate(PPs):
+    Ps = [0 for _ in dlist]
+    ns = [Infinity for _ in dlist]
+    for i, PP in enumerate(PPs):
         try:
-            P = PP.next()
+            P = next(PP)
             Ps[i] = P
             ns[i] = P.norm()
         except StopIteration:
@@ -227,7 +232,7 @@ def primes_iter(K, condition=None, sort_key=prime_label, maxnorm=Infinity):
         # all) has norm > maxnorm:
         nmin = min(ns)
         if nmin > maxnorm:
-            raise StopIteration
+            return
 
         # extract smallest prime and its index:
         i = ns.index(nmin)
@@ -235,7 +240,7 @@ def primes_iter(K, condition=None, sort_key=prime_label, maxnorm=Infinity):
 
         # pop the next prime off that sub-iterator, detecting if it has finished:
         try:
-            Ps[i] = PPs[i].next()
+            Ps[i] = next(PPs[i])
             ns[i] = Ps[i].norm()
         except StopIteration:
             # prevent i'th sub-iterator from being used again
@@ -259,7 +264,7 @@ def exp_vec_wt_iter(w, wts):
     if w==0:
         yield [0 for _ in wts]
     elif len(wts):
-        for v0 in range(1+w/wts[-1]):
+        for v0 in range(1+w//wts[-1]):
             w1 = w-wts[-1]*v0
             if w1==0:
                 yield [0]* (len(wts)-1) + [v0]
@@ -335,7 +340,7 @@ def ideals_of_norm(K,n):
     """
     if not hasattr(K,'ideal_norm_dict'):
         K.ideal_norm_dict = {}
-    if not n in K.ideal_norm_dict:
+    if n not in K.ideal_norm_dict:
         if n==1:
             K.ideal_norm_dict[n] = [K.ideal(1)]
         else:

@@ -1,9 +1,9 @@
 
 
-from dirichlet_conrey import DirichletGroup_conrey
+from lmfdb.characters.TinyConrey import ConreyCharacter
 from sage.all import euler_phi
 
-from lmfdb.backend.database import db, SQL
+from lmfdb.lmfdb_database import db, SQL
 from .verification import TableChecker, overall, overall_long, fast, slow
 
 class char_dir_orbits(TableChecker):
@@ -107,9 +107,9 @@ class char_dir_orbits(TableChecker):
         check order and parity by constructing a Conrey character in Sage (use the first index in galois_orbit)
         """
         # TIME about 30000s for full table
-        char = DirichletGroup_conrey(rec['modulus'])[rec['galois_orbit'][0]]
+        char = ConreyCharacter(rec['modulus'], rec['galois_orbit'][0])
         parity = 1 if char.is_even() else -1
         success = (parity == rec['parity'] and char.conductor() == rec['conductor'] and char.multiplicative_order() == rec['order'])
         if verbose and not success:
-            print "Order-parity failure", parity, rec['parity'], char.conductor(), rec['conductor'], char.multiplicative_order(), rec['order']
+            print("Order-parity failure", parity, rec['parity'], char.conductor(), rec['conductor'], char.multiplicative_order(), rec['order'])
         return success

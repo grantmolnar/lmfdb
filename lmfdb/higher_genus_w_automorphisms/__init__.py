@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 from lmfdb.app import app
 from lmfdb.logger import make_logger
 from flask import Blueprint
@@ -13,9 +14,16 @@ logger = make_logger(higher_genus_w_automorphisms_page)
 def body_class():
     return {'body_class': 'higher_genus_w_automorphisms'}
 
-import main
+from . import main
 assert main # silence pyflakes
 
 app.register_blueprint(higher_genus_w_automorphisms_page, url_prefix="/HigherGenus/C/Aut")
 
-
+# API2 has been disabled for now
+#from lmfdb.api2.searchers import register_search_function
+#register_search_function(
+#    "group_actions_higher_genus_curves",
+#    "Group actions on higher genus curves",
+#    "Search over group actions on higher genus curves",
+#    auto_search = 'hgcwa_passports'
+#)

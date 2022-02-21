@@ -1,4 +1,5 @@
-import utils
+
+from . import utils
 
 searchers = {}
 singletons = {}

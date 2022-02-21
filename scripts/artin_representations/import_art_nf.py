@@ -1,12 +1,12 @@
 #!/usr/local/bin/sage -python
 
 # This version writes the data to a file, deletes all records from the database,
-# then reloads from the files. 
-
-
-import sys, os
+# then reloads from the files.
+import sys
+import os
 import re
 import json
+import numpy
 
 # find lmfdb and the top of the tree
 mypath = os.path.realpath(__file__)
@@ -34,12 +34,6 @@ def makels(li):
   li2 = [str(x) for x in li]
   return ','.join(li2)
 
-# turn a conductor into a sortable string
-# this uses length 4 prefix
-def make_cond_key(D):
-  D1 = int(D.log(10))
-  return '%04d%s'%(D1,str(D))
-
 maxint = (2**63)-1
 
 def int_or_string(a):
@@ -55,7 +49,7 @@ def fix_local_factors(gconj):
 
 # There are two parts since we need to deal with two files/databases
 # The two functions below take our for one entry as a dictionary, and reformats
-# the dictionary
+# the dictionary 
 
 outrecs = []
 
@@ -64,6 +58,9 @@ def artrepload(l):
   global outrecs
   l['Conductor'] = int(l['Conductor'])
   l['GaloisConjugates'] = [fix_local_factors(z) for z in l['GaloisConjugates']]
+  sortord = numpy.argsort([z['GalOrbIndex'] for z in l['GaloisConjugates']])
+  l['GaloisConjugates'] = [l['GaloisConjugates'][z] for z in sortord]
+  assert [z['GalOrbIndex'] for z in l['GaloisConjugates']] == [u for u in range(1,len(l['GaloisConjugates'])+1)]
   # Extract containing representation from the label
   cont = l['Baselabel'].split('.')[2]
   l['Container'] = cont
@@ -71,33 +68,27 @@ def artrepload(l):
     l[s] = [int(z) for z in l[s]]
   l['Galn'] = l['Galois_nt'][0]
   l['Galt'] = l['Galois_nt'][1]
+  l['GaloisLabel'] = "%sT%s"%(str(l['Galois_nt'][0]),str(l['Galois_nt'][1]))
   del l['Galois_nt']
   l['GalConjSigns'] = [z['Sign'] for z in l['GaloisConjugates']]
+  l['Dets'] = [z['Det'] for z in l['GaloisConjugates']]
+  for j in range(len(l['GaloisConjugates'])):
+    del l['GaloisConjugates'][j]['Det']
+  aproj = l['Proj']
+  l['Proj_GAP'] = aproj[0]
+  l['Proj_nTj'] = aproj[1]
+  l['Proj_Polynomial'] = aproj[2]
+  del l['Proj']
   chival = int(l['Chi_of_complex'])
   dim = int(l['Dim'])
   minusones = (dim - chival)/2
   iseven = (minusones % 2) == 0
-  ar1 = rep.lucky({'Baselabel': l['Baselabel'],'NFGal': l['NFGal']})
-  if ar1 is not None:
-    if 'Dets' not in ar1:
-        print ar1
-        l['Dets'] = []
-    else:
-        l['Dets'] = [str(z) for z in ar1['Dets']]
-        #print "type "+str(type(l['Dets']))
-    l['Is_Even'] = ar1['Is_Even']
-    if iseven != l['Is_Even']:
-      print "Is even mismatch: %s from %d and %d" % (str(l['Baselabel']), dim, chival)
-  else:
-    l['Is_Even'] = iseven
-    l['Dets'] = []
+  l['Is_Even'] = iseven
   #print str(l)
-  if not isinstance(l['Dets'], list):
-    print "Type error "+str(l['Baselabel'])+" , "+str(l['Dets'])+" "+str(type(l['Dets']))
   count +=1
   outrecs.append(l)
   if count % 10000==0:
-    print "Count %s" % count
+    print("Count %s" % count)
   return
 
 def nfgalload(l):
@@ -112,7 +103,7 @@ def nfgalload(l):
   outrecs.append(l)
   count +=1
   if count % 10000==0:
-    print "Count %s" % count
+    print("Count %s" % count)
   return
 
 def strx(val, k):
@@ -133,7 +124,7 @@ def fixlist(d):
 reloadme = []
 # processing file names
 for path in sys.argv[1:]:
-    print path
+    print(path)
     count = 0
     outrecs = []
     filename = os.path.basename(path)
@@ -146,10 +137,10 @@ for path in sys.argv[1:]:
         line = line.strip()
         if re.match(r'\S',line):
             l = json.loads(line)
-	    if case == 'nfgal':
-	      nfgalload(l)
-	    if case == 'art rep':
-	      artrepload(l)
+            if case == 'nfgal':
+                nfgalload(l)
+            if case == 'art rep':
+                artrepload(l)
     # We have loaded the file, now dump it
     if outrecs:
         if case == 'nfgal':
@@ -161,7 +152,7 @@ for path in sys.argv[1:]:
             fnout.write('|'.join([str(cols[z]) for z in head1])+"\n\n")
             for ent in outrecs:
                 for kk in head1:
-                    if isinstance(ent[kk], unicode):
+                    if isinstance(ent[kk], str):
                         ent[kk] = str(ent[kk])
                     if not isinstance(ent[kk], str):
                         ent[kk] = json.dumps(ent[kk])
@@ -177,16 +168,18 @@ for path in sys.argv[1:]:
             fnout.write('|'.join([str(cols[z]) for z in head1])+"\n\n")
             for ent in outrecs:
                 for kk in head1:
-                    if isinstance(ent[kk], unicode):
+                    if isinstance(ent[kk], str):
                         ent[kk] = str(ent[kk])
                     if kk == 'Dets':
                         ent[kk] = copy_dumps(ent[kk], 'text[]', recursing=False)
+                    elif kk in ['Proj_GAP', 'Proj_nTj', 'Proj_Polynomial']:
+                        ent[kk] = copy_dumps(ent[kk], 'int[]', recursing=False)
                     elif not isinstance(ent[kk], str):
                         ent[kk] = json.dumps(ent[kk])
                 fnout.write('|'.join([ent[z] for z in head1])+'\n')
             fnout.close()
             reloadme.append('art')
-    print "%s entries" % count
+    print("%s entries" % count)
     fn.close()
 
 if nottest:
@@ -195,4 +188,3 @@ if nottest:
         nfgal.reload('nfgal.dump', sep='|')
     if k == 'art':
         rep.reload('art.dump', sep='|')
-

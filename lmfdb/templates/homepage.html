@@ -16,7 +16,7 @@
 {% endif %}
 {% set prompt = code['prompt'][L] if 'prompt' in code and L in code['prompt'] else L %}
 {# keep the line below as is to avoid annoying line breaks #}
-<div class="{{ [L,'nodisplay','code','codebox'] | join(' ')}}">{% for line in lines %}{{prompt}}:&nbsp;{{line}}<br>{% endfor %}</div>
+<div class="{{ [L,'nodisplay','code','codebox'] | join(' ')}}">{% for line in lines %}{{prompt}}:&nbsp;{{line}}<br /><div style="margin: 0; padding: 0; height: 0;">&nbsp;</div>{# this div is a workaround for a copy-tex bug where if a code block followed a hidden code block followed by math was selected and copied the hidden block would be also it is important that it has display: block #}{% endfor %}</div>
 {% endif %}
 {% endfor %}
 {% endif %}
@@ -56,7 +56,7 @@
             {% endif %}
             {% if user_is_authenticated -%}
               &middot;
-              <a href="{{ url_for('users.info') }}">{{ username }}</a> 
+              <a href="{{ url_for('users.info') }}">{{ username }}</a>
               &middot;
               <a href="{{ url_for('users.logout') }}">Logout</a>
               <br/>
@@ -87,7 +87,7 @@
             </a>
           </div>
         </div>
-{# deleting the confusing prev/next character links, 
+{# deleting the confusing prev/next character links,
    but leaving the code in case it is useful later
         {% if navi is defined -%}
           <div id="navi">
@@ -98,17 +98,12 @@
           </div>
         {%- elif navi_raw is defined -%}
           <div id="navi">{{ navi_raw|safe }}</div>
-        {%- endif %} 
+        {%- endif %}
 #}
       {# this span inside a div thing is necessary to align it at the bottom, see css #}
 
         </div>
-        {% if title_arithmetic -%}
-        <div id="title" class="arithmetic">{{ title_arithmetic|safe }}</div>
-        <div id="title" class="analytic nodisplay">{{ title_analytic|safe }}</div>
-        {% else %}
         <div id="title">{{ title|safe }}</div>
-        {% endif %}
 
     </div>
 </div>
@@ -119,7 +114,7 @@
 {%- include "sidebar.html" -%}
 </div>
 {% else %}
-<div id="sidebar" style="display: none; witdh=0">
+<div id="sidebar" style="display: none; width=0">
 {%- include "sidebar.html" -%}
 </div>
 <style type="text/css">
@@ -163,14 +158,14 @@
    {% endif %}
  {%- endmacro %}
 
-{% if (properties2 or origins or Linstances or friends or factors_origins or navi or  downloads or learnmore) %}
+{% if (properties or origins or Linstances or friends or factors_origins or navi or  downloads or learnmore) %}
       <div id="properties">
        <div id="properties-collapser">&uarr;</div>
-    {% if properties2 %}
+    {% if properties %}
        <h1 class="properties-header">Properties</h1>
        <div class="properties-body">
        <table>
-       {% for label, content in properties2 -%}
+       {% for label, content in properties -%}
          {% if label %}
            <tr><td class="label">{{label|safe}}</td><td>
          {% else %}
@@ -195,7 +190,7 @@
    {{ rightnavig("Origins of factors", factors_origins) }}
    {{ neighbors("Nearby objects", navi) }}
    {{ rightnavig("Downloads", downloads) }}
-   {{ rightnavig("Learn more about", learnmore) }}
+   {{ rightnavig("Learn more", learnmore) }}
     </div>
     {%- endif %}
 
@@ -208,6 +203,7 @@
         {%- endfor %}
       </div>
     {%- endwith %}
+    <div align="right" style="float: right; padding-left:10px;" id="rawtseticonspot"></div>
     {% if code %}
         <script>
         var cur_lang = null;
@@ -224,8 +220,8 @@
             }
         }
         </script>
-        <div align="right">
-            Show commands for:
+        <div align="right" style="float: right; margin-top:2px;">
+            Show commands:
             {% set slash = joiner("/ ") %}
             {% for lang in code['show'] %}
             {# override show names for standard languages to ensure consistency #}
@@ -234,11 +230,20 @@
             {% endfor %}
         </div>
     {% endif %}
+
+    {# Need to run after page has otherwise loaded #}
+    <script>
+    $().ready( function(){
+        if ($(".tset-container").length>0) {
+            imgsrc = "{{url_for("static", filename="images/t2r.png") }}";
+            $("#rawtseticonspot").html('<span onclick="iconrawtsetall()"><img alt="Toggle raw display" src="'+imgsrc+'" id="tset-raw-icon-all" style="position:relative;top: 2px"></span>');
+    } });
+    </script>
     {% if KNOWL_ID %}
     {% if BACKUP_KNOWL_ID %}
-    <h2>{{ KNOWL_INC(KNOWL_ID+'.top', title='', backupid=BACKUP_KNOWL_ID+'.top') }}</h2>
+    {{ KNOWL_INC(KNOWL_ID+'.top', title='', backupid=BACKUP_KNOWL_ID+'.top') }}
     {% else %}
-    <h2>{{ KNOWL_INC(KNOWL_ID+'.top', title='') }}</h2>
+    {{ KNOWL_INC(KNOWL_ID+'.top', title='') }}
     {% endif %}
     {% endif %}
     {% block content -%}
@@ -271,13 +276,11 @@ The function which was called for this page is: {{calling_function}}
     {% if credit -%}
       Data computed by {{ credit|safe }}.<br />
     {%- endif %}
-    
+
     {% if support -%}
       {{ support|safe }}<br/>
-    {%- else -%}
-        <h4>{{shortthanks|safe}}</h4>
-<br />
     {%- endif %}
+    <h4 style="margin:5px;">{{shortthanks|safe}}</h4>
     <div>
       <a href="{{ url_for('contact') }}">Contact</a>
       &middot;
@@ -289,8 +292,8 @@ The function which was called for this page is: {{calling_function}}
       {# <a href="{{ 'about' }}">About</a> #}
       &middot;
       {{ current_source|safe }}
-      &middot;
-      {{ latest_changeset|safe }}
+      {# &middot;
+      {{ latest_changeset|safe }} #}
       &middot;
       {{ sage_version|safe }}
       &middot;

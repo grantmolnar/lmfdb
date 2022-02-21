@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 from lmfdb.app import app
 from lmfdb.logger import make_logger
 from flask import Blueprint
@@ -11,7 +12,16 @@ logger = make_logger(galois_groups_page)
 def body_class():
     return {'body_class': 'galois_groups'}
 
-import main
+from . import main
 assert main
 
 app.register_blueprint(galois_groups_page, url_prefix="/GaloisGroup")
+
+# API2 has been disabled for now
+#from lmfdb.api2.searchers import register_search_function
+#register_search_function(
+#    "transitive_groups",
+#    "Galois groups",
+#    "Search over Galois groups",
+#    auto_search = 'gps_transitive'
+#)

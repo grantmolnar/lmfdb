@@ -1,9 +1,9 @@
+
 import datetime
 from lmfdb.api2 import __version__
 import json
 #from bson.objectid import ObjectId
-from lmfdb.backend.database import db
-import lmfdb.inventory_app.inventory_viewer as inventory
+from lmfdb import db
 
 api_version = __version__
 
@@ -21,10 +21,10 @@ class APIEncoder(json.JSONEncoder):
     def default(self, obj):
       try:
         return obj._toJSON()
-      except:
+      except Exception:
           try:
               return str(obj)
-          except:
+          except Exception:
               return json.JSONEncoder.default(self, obj)
 
 def create_search_dict(table='', query=None, view_start=0, request = None):
@@ -199,12 +199,13 @@ def get_filtered_fields(coll_pair):
     Get a list of fields on which searching is possible
     coll_pair -- Two element list or tuple (prefix, name)
     """
+    return None
 
-    data = inventory.retrieve_description(coll_pair[0], coll_pair[1])
-    field_list = data['data']
-    if not field_list : return None
+    #data = inventory.retrieve_description(coll_pair[0], coll_pair[1])
+    #field_list = data['data']
+    #if not field_list : return None
 
-    return field_list
+    #return field_list
 
 def get_cname_list(info):
     """
@@ -229,7 +230,7 @@ def patch_up_old_inventory(data, table_name):
 
     table = db[table_name]
     result = {}
-    for el in table._search_cols:
+    for el in table.search_cols:
         try:
             result[el] = data[el]
         except KeyError:
@@ -251,10 +252,10 @@ def default_projection(request, cnames=None):
         exclude = False
         try:
             if request.args.get('_exclude'): exclude = True
-        except:
+        except Exception:
             pass
         project = build_query_projection(fields, exclude = exclude)
-    except:
+    except Exception:
         project = None
     return project
 
@@ -278,7 +279,7 @@ def build_query_projection(field_list, exclude=False):
 
 def compare_db_strings(str1, str2):
     """
-    Compare two database strings for compatability. Same db and collection, not same field
+    Compare two database strings for compatibility. Same db and collection, not same field
     str1 -- First database string to compare
     str2 -- Second database string to compare
     """
@@ -335,7 +336,7 @@ def interpret(query, qkey, qval, type_info):
             elif type_info == 'integer':
                 try:
                     qval = int(qval)
-                except:
+                except Exception:
                     qval = [int(_) for _ in qval.split(DELIM)]
             elif type_info == 'real':
                 qval = float(qval)
@@ -352,7 +353,7 @@ def interpret(query, qkey, qval, type_info):
 
             if not user_infer and comparator: qval = {comparator:qval}
 
-        except:
+        except Exception:
           user_infer = True
     else:
         if qval.startswith("|"): qval = qval[1:]
@@ -385,7 +386,7 @@ def interpret(query, qkey, qval, type_info):
                 qval = { "$in" : [float(qval[2:])] }
             elif qval.startswith("cpy"):
                 qval = { "$in" : [literal_eval(qval[3:])] }
-        except:
+        except Exception:
             # no suitable conversion for the value, keep it as string
             return
     query[qkey] = qval

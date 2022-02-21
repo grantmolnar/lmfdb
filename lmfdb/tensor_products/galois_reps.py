@@ -246,13 +246,12 @@ class GaloisRepresentation( Lfunction):
             R = PolynomialRing(K, "T")
             T = R.gens()[0]
             if self.conductor % p != 0:
-                return  1 - ComplexField()(chi(p)) * T
+                return 1 - ComplexField()(chi(p)) * T
             else:
                 return R(1)
 
         self.local_euler_factor = eu
         self.ld.gp().quit()
-
 
     def init_artin_rep(self, rho):
         """
@@ -296,11 +295,11 @@ class GaloisRepresentation( Lfunction):
 
     def init_elliptic_modular_form(self, F, number):
         """
-        Initiate with an Elliptic Modular Form.
+        Initiate with an elliptic modular form.
         """
         self.number = number
         self.original_object = [[F,number]]
-        self.object_type = "Elliptic Modular newform"
+        self.object_type = "Elliptic modular newform"
         self.dim = 2
         self.weight = ZZ(F.weight)
         self.motivic_weight = ZZ(F.weight) - 1
@@ -374,7 +373,7 @@ class GaloisRepresentation( Lfunction):
                 raise NotImplementedError("Currently tensor products of Galois representations are only implemented under some conditions.",
                                           "The behaviour at %d is too wild (both factors must be semistable)." % p)
 
-        # check for the possibily of getting poles
+        # check for the possibility of getting poles
         if V.weight == W.weight and V.conductor == W.conductor :
             Vans = V.algebraic_coefficients(50)
             Wans = W.algebraic_coefficients(50)
@@ -672,7 +671,7 @@ def tensor_get_an_no_deg1(L1, L2, d1, d2, BadPrimeInfo):
         q = 1
         E1 = []
         E2 = []
-        if not p in BadPrimes:
+        if p not in BadPrimes:
             for i in range(f):
                 q=q*p
                 E1.append(L1[q-1])
@@ -725,7 +724,7 @@ def tensor_get_an_deg1(L, D, BadPrimeInfo):
         q = 1
         u = 1
         e = D[p-1]
-        if not p in BadPrimes:
+        if p not in BadPrimes:
             for i in range(f):
                 q = q*p
                 u = u*e

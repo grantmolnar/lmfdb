@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" Complete the entries for l aidc orbits of Hecke algebra adding stucture data if needed.
+""" Complete the entries for l adic orbits of Hecke algebra adding structure data if needed.
 
 Author: Samuele Anni
 """
@@ -52,8 +52,8 @@ def check_mod_l_data(orbit_label, index, ell, ll, fix=False):
         if 'structure' not in o.keys():
             print("NOT stored")
             if fix:
-                d=do_import(ll);
-                print d;
+                d=do_import(ll)
+                print(d)
                 hecke_orb_l.update({"_id": o["_id"]}, {"$set":{'field': d['field'], 'structure': d['structure'],'properties': d['properties'], 'operators': d['operators']}}, upsert=True)
                 print("Fixed orbit label %s index %s" % (orbit_label, o['index']))
         else:

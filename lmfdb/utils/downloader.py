@@ -1,8 +1,10 @@
 import time
+
 from flask import abort, send_file, stream_with_context, Response
+
 from werkzeug.datastructures import Headers
 from ast import literal_eval
-import StringIO
+from io import BytesIO
 
 
 class Downloader(object):
@@ -93,7 +95,7 @@ class Downloader(object):
     def to_lang(self, lang, inp, level = 0, prepend = ''):
         if inp is None:
             return self.none[lang]
-        if isinstance(inp, str) or isinstance(inp, unicode):
+        if isinstance(inp, str):
             return '"{0}"'.format(str(inp))
         if isinstance(inp, int):
             return str(inp)
@@ -133,13 +135,13 @@ class Downloader(object):
         filename = filebase + self.file_suffix[lang]
         c = self.comment_prefix[lang]
         mydate = time.strftime("%d %B %Y")
-        s =  '\n'
+        s = '\n'
         s += c + ' %s downloaded from the LMFDB on %s.\n' % (title, mydate)
         s += result
-        strIO = StringIO.StringIO()
-        strIO.write(str(s))
-        strIO.seek(0)
-        return send_file(strIO, attachment_filename=filename, as_attachment=True, add_etags=False)
+        bIO = BytesIO()
+        bIO.write(s.encode('utf-8'))
+        bIO.seek(0)
+        return send_file(bIO, attachment_filename=filename, as_attachment=True, add_etags=False)
 
     def _wrap_generator(self, generator, filebase, lang='text', title=None, add_ext=True):
         """
@@ -183,7 +185,7 @@ class Downloader(object):
         func_start = self.get('function_start',{}).get(lang,[])
         func_body = self.get('function_body',{}).get(lang,[])
         func_end = self.get('function_end',{}).get(lang,[])
-        if isinstance(self.columns, basestring):
+        if isinstance(self.columns, str):
             proj = [self.columns]
         elif isinstance(self.columns, list):
             proj = self.columns
@@ -201,20 +203,20 @@ class Downloader(object):
         cw = self.get('column_wrappers',{})
         id = lambda x: x
         for col in wo_label:
-            if not col in cw:
+            if col not in cw:
                 cw[col] = id
         # reissue query here
         try:
-            query = literal_eval(info.get('query','{}'))
+            query = literal_eval(info.get('query', '{}'))
             data = list(self.table.search(query, projection=proj))
             if label_col:
                 label_list = [res[label_col] for res in data]
             if onecol:
                 res_list = [cw[wo_label[0]](res.get(wo_label[0])) for res in data]
             else:
-                res_list = [[cw[col](res.get(col)) for col in wo_label]  for res in data]
+                res_list = [[cw[col](res.get(col)) for col in wo_label] for res in data]
         except Exception as err:
-            return abort(404, "Unable to parse query: %s"%err)
+            return abort(404, "Unable to parse query: %s" % err)
         c = self.comment_prefix[lang]
         s = c + ' Query "%s" returned %d %s.\n\n' %(str(info.get('query')), len(data), short_name if len(data) == 1 else short_name)
         if label_col:
@@ -230,7 +232,7 @@ class Downloader(object):
         if isinstance(data_desc, dict):
             data_desc = data_desc[lang]
         if data_desc is not None:
-            if isinstance(data_desc, basestring):
+            if isinstance(data_desc, str):
                 data_desc = [data_desc]
             for line in data_desc:
                 s += c + ' %s\n' % line
